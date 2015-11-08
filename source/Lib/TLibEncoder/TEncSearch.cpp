@@ -217,6 +217,123 @@ Void TEncSearch::destroy() //JCY
   delete m_pGpuSearch;
 }
 
+//JCY
+Void TEncSearch::initWPP(TEncSearch *pcSearch,
+                      TEncCfg*      pcEncCfg,
+                      TComTrQuant*  pcTrQuant,
+                      Int           iSearchRange,
+                      Int           bipredSearchRange,
+                      Int           iFastSearch,
+                      const UInt    maxCUWidth,
+                      const UInt    maxCUHeight,
+                      const UInt    maxTotalCUDepth,
+                      TEncEntropy*  pcEntropyCoder,
+                      TComRdCost*   pcRdCost,
+                      TEncSbac*** pppcRDSbacCoder,
+                      TEncSbac*   pcRDGoOnSbacCoder
+                      )
+{
+
+  //JCY
+  GPU::MemOpt::AllocDeviceMem<GpuMeDataAccess*>(m_pcDevGPU, sizeof(GpuMeDataAccess));
+
+  m_pcCPU      = new CpuMeDataAccess(pcEncCfg->getSourceWidth(), pcEncCfg->getSourceHeight(), pcEncCfg->getGOPSize());
+  m_pcHostGPU  = new GpuMeDataAccess(pcEncCfg->getSourceWidth(), pcEncCfg->getSourceHeight(), pcEncCfg->getGOPSize());
+  m_pGpuSearch = new GpuSearch(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
+
+  m_pcCPU->initSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
+  m_pcHostGPU->initSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
+  
+  m_pcCPU->init();
+  m_pcHostGPU->initWPP(pcSearch->m_pcHostGPU);
+  m_pGpuSearch->init();
+
+
+  //~JCY
+
+  
+  m_pcEncCfg             = pcEncCfg;
+  m_pcTrQuant            = pcTrQuant;
+  m_iSearchRange         = iSearchRange;
+  m_bipredSearchRange    = bipredSearchRange;
+  m_iFastSearch          = iFastSearch;
+  m_pcEntropyCoder       = pcEntropyCoder;
+  m_pcRdCost             = pcRdCost;
+
+  m_pppcRDSbacCoder     = pppcRDSbacCoder;
+  m_pcRDGoOnSbacCoder   = pcRDGoOnSbacCoder;
+
+  for (UInt iDir = 0; iDir < MAX_NUM_REF_LIST_ADAPT_SR; iDir++)
+  {
+    for (UInt iRefIdx = 0; iRefIdx < MAX_IDX_ADAPT_SR; iRefIdx++)
+    {
+      m_aaiAdaptSR[iDir][iRefIdx] = iSearchRange;
+    }
+  }
+
+  m_puiDFilter = s_auiDFilter + 4;
+
+  // initialize motion cost
+  for( Int iNum = 0; iNum < AMVP_MAX_NUM_CANDS+1; iNum++)
+  {
+    for( Int iIdx = 0; iIdx < AMVP_MAX_NUM_CANDS; iIdx++)
+    {
+      if (iIdx < iNum)
+      {
+        m_auiMVPIdxCost[iIdx][iNum] = xGetMvpIdxBits(iIdx, iNum);
+      }
+      else
+      {
+        m_auiMVPIdxCost[iIdx][iNum] = MAX_INT;
+      }
+    }
+  }
+
+  const ChromaFormat cform=pcEncCfg->getChromaFormatIdc();
+  initTempBuff(cform);
+
+  m_pTempPel = new Pel[maxCUWidth*maxCUHeight];
+
+  const UInt uiNumLayersToAllocate = pcEncCfg->getQuadtreeTULog2MaxSize()-pcEncCfg->getQuadtreeTULog2MinSize()+1;
+  const UInt uiNumPartitions = 1<<(maxTotalCUDepth<<1);
+  for (UInt ch=0; ch<MAX_NUM_COMPONENT; ch++)
+  {
+    const UInt csx=::getComponentScaleX(ComponentID(ch), cform);
+    const UInt csy=::getComponentScaleY(ComponentID(ch), cform);
+    m_ppcQTTempCoeff[ch] = new TCoeff* [uiNumLayersToAllocate];
+    m_pcQTTempCoeff[ch]   = new TCoeff [(maxCUWidth*maxCUHeight)>>(csx+csy)   ];
+#if ADAPTIVE_QP_SELECTION
+    m_ppcQTTempArlCoeff[ch]  = new TCoeff*[uiNumLayersToAllocate];
+    m_pcQTTempArlCoeff[ch]   = new TCoeff [(maxCUWidth*maxCUHeight)>>(csx+csy)   ];
+#endif
+    m_puhQTTempCbf[ch] = new UChar  [uiNumPartitions];
+
+    for (UInt layer = 0; layer < uiNumLayersToAllocate; layer++)
+    {
+      m_ppcQTTempCoeff[ch][layer] = new TCoeff[(maxCUWidth*maxCUHeight)>>(csx+csy)];
+#if ADAPTIVE_QP_SELECTION
+      m_ppcQTTempArlCoeff[ch][layer]  = new TCoeff[(maxCUWidth*maxCUHeight)>>(csx+csy) ];
+#endif
+    }
+
+    m_phQTTempCrossComponentPredictionAlpha[ch]    = new Char  [uiNumPartitions];
+    m_pSharedPredTransformSkip[ch]                 = new Pel   [MAX_CU_SIZE*MAX_CU_SIZE];
+    m_pcQTTempTUCoeff[ch]                          = new TCoeff[MAX_CU_SIZE*MAX_CU_SIZE];
+#if ADAPTIVE_QP_SELECTION
+    m_ppcQTTempTUArlCoeff[ch]                      = new TCoeff[MAX_CU_SIZE*MAX_CU_SIZE];
+#endif
+    m_puhQTTempTransformSkipFlag[ch]               = new UChar [uiNumPartitions];
+  }
+  m_puhQTTempTrIdx   = new UChar  [uiNumPartitions];
+  m_pcQTTempTComYuv  = new TComYuv[uiNumLayersToAllocate];
+  for( UInt ui = 0; ui < uiNumLayersToAllocate; ++ui )
+  {
+    m_pcQTTempTComYuv[ui].create( maxCUWidth, maxCUHeight, pcEncCfg->getChromaFormatIdc() );
+  }
+  m_pcQTTempTransformSkipTComYuv.create( maxCUWidth, maxCUHeight, pcEncCfg->getChromaFormatIdc() );
+  m_tmpYuvPred.create(MAX_CU_SIZE, MAX_CU_SIZE, pcEncCfg->getChromaFormatIdc());
+}
+
 
 Void TEncSearch::init(TEncCfg*      pcEncCfg,
                       TComTrQuant*  pcTrQuant,

@@ -52,6 +52,8 @@ CpuMeDataAccess::destroy()
 
 
 
+
+
 ///////////////////////////Class GpuMeDataAccess Starts/////////////////////////////////
 void 
 GpuMeDataAccess::init()
@@ -105,6 +107,103 @@ GpuMeDataAccess::init()
 	}
 	*/
 }
+
+
+//GpuMeDataAccess will be initialized 
+//many times because of duplicating cSearch
+//However, they shared current frame and reference lists 
+//The way to solve is initialize HM own cSearch first
+//Then for each cSearch after, it makes aliases to the
+//first cSearch allocated GPU memory.
+
+void 
+GpuMeDataAccess::initWPP(GpuMeDataAccess* m_pcHostGPU)
+{
+
+	//Alias current frame
+	if(m_pcHostGPU->m_cYList.size()!=0)
+	{
+		m_cYList = m_pcHostGPU->m_cYList;
+	} else {
+		printf("Alias m_cYList error!\n");
+	}
+
+	if(m_pcHostGPU-m_cUList.size()!=0)
+	{
+		m_cUList = m_pcHostGPU->m_cUList;
+	} else {
+		printf("Alias m_cUList error!\n");
+	}
+
+	if(m_pcHostGPU->m_cVList.size()!=0)
+	{
+		m_cVList = m_pcHostGPU->m_cVList;
+	} else {
+		printf("Alias m_cUList error!\n");
+	}
+
+	//Alias reference list 0
+	if(m_pcHostGPU->m_cYRefList0.size()!=0)
+	{
+		m_cYRefList0 = m_pcHostGPU->m_cYRefList0;
+	} else {
+		printf("Alias m_cYRefList0 error!\n");
+	}
+
+	if(m_pcHostGPU->m_cURefList0.size()!=0)
+	{
+		m_cURefList0 = m_pcHostGPU->m_cURefList0;
+	} else {
+		printf("Alias m_cURefList0 error!\n");
+	}
+
+	if(m_pcHostGPU->m_cVRefList0.size()!=0)
+	{
+		m_cVRefList0 = m_pcHostGPU->m_cVRefList0;
+	} else {
+		printf("Alias m_cVRefList0 error!\n");
+	}
+
+	//Alias reference list 1
+	if(m_pcHostGPU->m_cYRefList1.size()!=0)
+	{
+		m_cYRefList1 = m_pcHostGPU->m_cYRefList1;
+	} else {
+		printf("Alias m_cYRefList1 error!\n");
+	}
+
+	if(m_pcHostGPU->m_cURefList1.size()!=0)
+	{
+		m_cURefList1 = m_pcHostGPU->m_cURefList1;
+	} else {
+		printf("Alias m_cURefList1 error!\n");
+	}
+
+	if(m_pcHostGPU->m_cVRefList1.size()!=0)
+	{
+		m_cVRefList1 = m_pcHostGPU->m_cVRefList1;
+	} else {
+		printf("Alias m_cVRefList1 error!\n");
+	}
+	
+	GPU::MemOpt::AllocDeviceMem<UInt*>(m_puiSadArray,sizeof(UInt) * 4 * m_iSearchRange * m_iSearchRange);
+	GPU::MemOpt::AllocHostMem<UInt*>(m_puiSadArrayCPU,sizeof(UInt) * 4 * m_iSearchRange * m_iSearchRange);
+
+	/*
+	if( (m_puiSadArrayCPU = (UInt*)cudaMall(sizeof(UInt) * 4 * m_iSearchRange * m_iSearchRange)) == NULL)
+	{
+		perror("Allocating m_puiSadArrayCPU Failed\n");
+	}
+	*/
+}
+
+
+
+
+
+
+
+
 
 void 
 GpuMeDataAccess::destroy()

@@ -132,6 +132,7 @@ public:
 	{}
 	
 	void init();
+	void initWPP(GpuMeDataAccess* m_pcHostGPU);
 	void destroy();
 	//void initSearchData(Int iSearchRange = 128, Int iBiPredSearchRange = 16, Int iFastSearch = 0);
 };

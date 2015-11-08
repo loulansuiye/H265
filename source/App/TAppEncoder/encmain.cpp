@@ -37,6 +37,7 @@
 #include <nvToolsExtCuda.h>
 #include <nvToolsExtCudaRt.h>
 #include <time.h>
+#include <sys/time.h>
 #include <iostream>
 #include "TAppEncTop.h"
 #include "TAppCommon/program_options_lite.h"
@@ -49,9 +50,9 @@
 // ====================================================================================================================
 // Main function
 // ====================================================================================================================
-extern Double dTotalIntMeTime; //JCY
-extern Double dTotalSubIntMeTime; //JCY
-extern Double dTotalBiRefIntMeTime; //JCY
+//extern Double dTotalIntMeTime; //JCY
+//extern Double dTotalSubIntMeTime; //JCY
+//extern Double dTotalBiRefIntMeTime; //JCY
 
 
 int main(int argc, char* argv[])
@@ -97,19 +98,24 @@ int main(int argc, char* argv[])
   EnvVar::printEnvVarInUse();
 #endif
 
-  // starting time
-  Double dResult;
-  clock_t lBefore = clock();
+ // starting time
+    Double dResult;
+    struct timeval start, end;
 
-  // call encoding function
-  cTAppEncTop.encode();
+    //clock_t lBefore = clock();
+    gettimeofday(&start,NULL);
+    // call encoding function
+    cTAppEncTop.encode();
+    gettimeofday(&end,NULL);
 
-  // ending time
-  dResult = (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
-  printf("\n Total Time: %12.3f sec.\n", dResult);
-  printf("\n Total Integer ME: %12.3f sec.\n", dTotalIntMeTime);
-  printf("\n Total Sub-Integer ME: %12.3f sec.\n", dTotalSubIntMeTime);
-  printf("\n Total Bi-refinement ME: %12.3f sec.\n", dTotalBiRefIntMeTime);
+    // ending time
+    //dResult = (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
+    dResult = (end.tv_sec - start.tv_sec);
+    dResult += (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("\n Total Time: %12.3f sec.\n", dResult);
+  //printf("\n Total Integer ME: %12.3f sec.\n", dTotalIntMeTime);
+  //printf("\n Total Sub-Integer ME: %12.3f sec.\n", dTotalSubIntMeTime);
+  //printf("\n Total Bi-refinement ME: %12.3f sec.\n", dTotalBiRefIntMeTime);
 
   // destroy application encoder class
   cTAppEncTop.destroy();

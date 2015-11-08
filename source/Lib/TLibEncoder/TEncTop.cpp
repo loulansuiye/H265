@@ -92,6 +92,14 @@ Void TEncTop::create ()
   // create processing unit classes
   m_cGOPEncoder.        create( );
   m_cSliceEncoder.      create( getSourceWidth(), getSourceHeight(), m_chromaFormatIDC, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth );
+
+  //JCY: initialize cuEncoder array for WPP
+    for(int i=0;i<WPP_NUM_ROWS;i++)
+    {
+        m_cCuEncoderWPP[i].create( m_maxTotalCUDepth, m_maxCUWidth, m_maxCUHeight, m_chromaFormatIDC );
+
+    }
+
   m_cCuEncoder.         create( m_maxTotalCUDepth, m_maxCUWidth, m_maxCUHeight, m_chromaFormatIDC );
   if (m_bUseSAO)
   {
@@ -116,6 +124,27 @@ Void TEncTop::create ()
     m_cRateCtrl.init( m_framesToBeEncoded, m_RCTargetBitrate, m_iFrameRate, m_iGOPSize, m_iSourceWidth, m_iSourceHeight,
         m_maxCUWidth, m_maxCUHeight, m_RCKeepHierarchicalBit, m_RCUseLCUSeparateModel, m_GOPList );
   }
+
+	 //JCY: for WPP
+    for(int i = 0; i<WPP_NUM_ROWS;i++)
+    {
+        m_pppcRDSbacCoderWPP[i] = new TEncSbac** [m_maxTotalCUDepth+1];
+        m_pppcBinCoderCABACWPP[i] = new TEncBinCABACCounter** [m_maxTotalCUDepth+1];
+
+        for ( Int iDepth = 0; iDepth < m_maxTotalCUDepth+1; iDepth++ )
+        {
+            m_pppcRDSbacCoderWPP[i][iDepth] = new TEncSbac* [CI_NUM];
+            m_pppcBinCoderCABACWPP[i][iDepth] = new TEncBinCABACCounter* [CI_NUM];
+
+            for (Int iCIIdx = 0; iCIIdx < CI_NUM; iCIIdx ++ )
+            {
+                m_pppcRDSbacCoderWPP[i][iDepth][iCIIdx] = new TEncSbac;
+                m_pppcBinCoderCABACWPP[i][iDepth][iCIIdx] = new TEncBinCABACCounter;
+
+                m_pppcRDSbacCoderWPP[i][iDepth][iCIIdx]->init( m_pppcBinCoderCABACWPP[i][iDepth][iCIIdx] );
+            }
+        }
+    }
 
   m_pppcRDSbacCoder = new TEncSbac** [m_maxTotalCUDepth+1];
 #if FAST_BIT_EST
@@ -152,6 +181,13 @@ Void TEncTop::destroy ()
   m_cGOPEncoder.        destroy();
   m_cSliceEncoder.      destroy();
   m_cCuEncoder.         destroy();
+
+  //JCY: destroy cuEncoder array for WPP
+  for(int i=0;i<WPP_NUM_ROWS;i++)
+  {
+    m_cCuEncoderWPP[i].destroy();
+  }
+
   m_cEncSAO.            destroyEncData();
   m_cEncSAO.            destroy();
   m_cLoopFilter.        destroy();
@@ -202,6 +238,7 @@ Void TEncTop::init(Bool isFieldCoding)
   m_cSliceEncoder.init( this );
   m_cCuEncoder.   init( this );
 
+
   // initialize transform & quantization class
   m_pcCavlcCoder = getCavlcCoder();
 
@@ -220,6 +257,38 @@ Void TEncTop::init(Bool isFieldCoding)
 
   // initialize encoder search class
   m_cSearch.init( this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder() );
+
+  //JCY: init cuEncoder array for WPP
+  for(int i=0;i<WPP_NUM_ROWS;i++)
+  {
+      m_cCuEncoderWPP[i].initWPP(this,i);
+  }
+  
+  for(int i=0;i<WPP_NUM_ROWS;i++)
+  {
+      m_cTrQuantWPP[i].init( 1 << m_uiQuadtreeTULog2MaxSize,
+                      m_useRDOQ,
+                      m_useRDOQTS,
+#if T0196_SELECTIVE_RDOQ
+                      m_useSelectiveRDOQ,
+#endif
+                      true
+                      ,m_useTransformSkipFast
+#if ADAPTIVE_QP_SELECTION
+                      ,m_bUseAdaptQpSelect
+#endif
+                      );
+  }
+  
+//JCY: initialize HM own cSearch first
+//Then for each cSearch after, it makes aliases to the
+//first cSearch allocated GPU memory.
+  for(int i=0;i<WPP_NUM_ROWS;i++)
+  {
+      m_cSearchWPP[i].initWPP(&m_cSearch, this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder() );
+ 
+  }
+  //~JCY
 
   m_iMaxRefPicNum = 0;
 

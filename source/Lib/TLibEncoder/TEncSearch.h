@@ -148,6 +148,21 @@ public:
             TComRdCost*   pcRdCost,
             TEncSbac***   pppcRDSbacCoder,
             TEncSbac*     pcRDGoOnSbacCoder );
+
+  Void initWPP(TEncSearch* pcSearch,
+            TEncCfg*      pcEncCfg,
+            TComTrQuant*  pcTrQuant,
+            Int           iSearchRange,
+            Int           bipredSearchRange,
+            Int           iFastSearch,
+            const UInt    maxCUWidth,
+            const UInt    maxCUHeight,
+            const UInt    maxTotalCUDepth,
+            TEncEntropy*  pcEntropyCoder,
+            TComRdCost*   pcRdCost,
+            TEncSbac***   pppcRDSbacCoder,
+            TEncSbac*     pcRDGoOnSbacCoder );
+
 Void destroy(); //JCY
 protected:
 

@@ -34,10 +34,23 @@
 /** \file     TEncSlice.cpp
     \brief    slice encoder class
 */
+#include <math.h>
+#include <thread>
+#include <mutex>
+#include <pthread.h>
 
 #include "TEncTop.h"
 #include "TEncSlice.h"
-#include <math.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+std::mutex WPP_Mutex;
+
+
+//static UInt ctuIndexArray[] = {0,1,2,10,3,11,4,12,20,5,13,21,6,14,22,30,7,15,23,31,8,16,24,32,40,9,17,25,33,41,18,26,34,42,50,19,27,35,43,51,28,36,44,52,60,29,37,45,53,61,38,46,54,62,70,39,47,55,63,71,48,56,64,72,49,57,65,73,58,66,74,59,67,75,68,76,69,77,78,79};
+
+//static UInt ctuStatus[80]={0};
+
 
 //! \ingroup TLibEncoder
 //! \{
@@ -121,6 +134,11 @@ Void TEncSlice::init( TEncTop* pcEncTop )
 
   m_pcGOPEncoder      = pcEncTop->getGOPEncoder();
   m_pcCuEncoder       = pcEncTop->getCuEncoder();
+  //JCY: store CuEncoder array WPP for slice encoder
+    for(int i=0; i < WPP_NUM_ROWS; i++)
+    {
+        m_pcCuEncoderWPP = pcEncTop->getCuEncoderWPP();
+    }
   m_pcPredSearch      = pcEncTop->getPredSearch();
 
   m_pcEntropyCoder    = pcEncTop->getEntropyCoder();
@@ -193,7 +211,7 @@ Void TEncSlice::initEncSlice( TComPic* pcPic, Int pocLast, Int pocCurr, Int iNum
   Double dQP;
   Double dLambda;
 
-  rpcSlice = pcPic->getSlice(0);
+  rpcSlice = pcPic->getSlice(0); //JCY the key is here. A slice comes from pcPic
   rpcSlice->setSliceBits(0);
   rpcSlice->setPic( pcPic );
   rpcSlice->initSlice();
@@ -605,6 +623,7 @@ Void TEncSlice::precompressSlice( TComPic* pcPic )
   setUpLambda(pcSlice, m_pdRdPicLambda[uiQpIdxBest], m_piRdPicQp    [uiQpIdxBest]);
 }
 
+//This function seems never gets called
 Void TEncSlice::calCostSliceI(TComPic* pcPic)
 {
   Double            iSumHadSlice      = 0;
@@ -662,7 +681,7 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
 
   TComBitCounter  tempBitCounter;
   const UInt      frameWidthInCtus = pcPic->getPicSym()->getFrameWidthInCtus();
-
+  const UInt      frameHeightInCtus = pcPic->getPicSym()->getFrameHeightInCtus(); //JCY: for WPP
   //------------------------------------------------------------------------------
   //  Weighted Prediction parameters estimation.
   //------------------------------------------------------------------------------
@@ -722,11 +741,62 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
     }
   }
 
-  // for every CTU in the slice segment (may terminate sooner if there is a byte limit on the slice-segment)
+    //Loop lanuch threads
+    std::vector<std::thread> threads;
+    m_cWppScheduler.SetWPPScheduler(frameWidthInCtus,frameHeightInCtus);
+    m_cWppScheduler.CalculateWppCtuAddress();
+    m_cWppScheduler.resetStatus();
+    m_threadpool.ctuIndex=0;
+    //m_cWppScheduler.printWppIndex();
 
-  for( UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < boundingCtuTsAddr; ++ctuTsAddr )
+    for(int i=0;i<WPP_THREAD_NUM;i++)
+    {
+        threads.push_back(std::thread(&TEncSlice::threadTask, this, pcPic, 0, pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr, pRDSbacCoder,&tempBitCounter, i));
+    }
+        
+    //Loop join threads
+    for(auto& thread : threads)
+    {
+        thread.join();
+    }
+    
+    //memset(ctuStatus,0,sizeof(int)*80);
+    //m_threadpool.ctuIndex=0;
+    
+    /*
+  // for every CTU in the slice segment (may terminate sooner if there is a byte limit on the slice-segment
+    for( UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < boundingCtuTsAddr; ++ctuTsAddr )
+    {
+        std::thread first(&TEncSlice::encodeCTUWPP, this, pcPic, ctuIndexArray[ctuTsAddr], pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr, pRDSbacCoder,&tempBitCounter, 0);
+        
+        
+        if((ctuIndexArray[ctuTsAddr]-2+frameWidthInCtus)==ctuIndexArray[ctuTsAddr+1]){
+            ctuTsAddr++;
+            std::thread second(&TEncSlice::encodeCTUWPP, this, pcPic, ctuIndexArray[ctuTsAddr], pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr, pRDSbacCoder,&tempBitCounter, 1);
+     
+            if((ctuIndexArray[ctuTsAddr]-2+frameWidthInCtus)==ctuIndexArray[ctuTsAddr+1]){
+                ctuTsAddr++;
+                std::thread third(&TEncSlice::encodeCTUWPP, this, pcPic, ctuIndexArray[ctuTsAddr], pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr, pRDSbacCoder,&tempBitCounter, 2);
+                third.join();
+             
+            }
+         
+            second.join();
+        }
+        
+        
+        first.join();
+
+        //std::thread first(&TEncSlice::setSearchRange, this, pcSlice);
+        //encodeCTUWPP(pcPic, ctuTsAddr, pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr, pRDSbacCoder,tempBitCounter);
+        
+    }
+*/
+
+  /*
+    for( UInt ctuTsAddr = startCtuTsAddr; ctuTsAddr < boundingCtuTsAddr; ++ctuTsAddr )
   {
-    const UInt ctuRsAddr = pcPic->getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
+    const UInt ctuRsAddr = pcPic->getPicSym()->getCtuTsToRsAddrMap(ctuIndexArray[ctuTsAddr]);
     // initialize CTU encoder
     TComDataCU* pCtu = pcPic->getCtu( ctuRsAddr );
     pCtu->initCtu( pcPic, ctuRsAddr );
@@ -767,51 +837,21 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
     ((TEncBinCABAC*)m_pcRDGoOnSbacCoder->getEncBinIf())->setBinCountingEnableFlag(true);
 
     Double oldLambda = m_pcRdCost->getLambda();
-    if ( m_pcCfg->getUseRateCtrl() )
-    {
-      Int estQP        = pcSlice->getSliceQp();
-      Double estLambda = -1.0;
-      Double bpp       = -1.0;
-
-      if ( ( pcPic->getSlice( 0 )->getSliceType() == I_SLICE && m_pcCfg->getForceIntraQP() ) || !m_pcCfg->getLCULevelRC() )
-      {
-        estQP = pcSlice->getSliceQp();
-      }
-      else
-      {
-        bpp = m_pcRateCtrl->getRCPic()->getLCUTargetBpp(pcSlice->getSliceType());
-        if ( pcPic->getSlice( 0 )->getSliceType() == I_SLICE)
-        {
-          estLambda = m_pcRateCtrl->getRCPic()->getLCUEstLambdaAndQP(bpp, pcSlice->getSliceQp(), &estQP);
-        }
-        else
-        {
-          estLambda = m_pcRateCtrl->getRCPic()->getLCUEstLambda( bpp );
-          estQP     = m_pcRateCtrl->getRCPic()->getLCUEstQP    ( estLambda, pcSlice->getSliceQp() );
-        }
-
-        estQP     = Clip3( -pcSlice->getSPS()->getQpBDOffset(CHANNEL_TYPE_LUMA), MAX_QP, estQP );
-
-        m_pcRdCost->setLambda(estLambda, pcSlice->getSPS()->getBitDepths());
-
-#if RDOQ_CHROMA_LAMBDA
-        // set lambda for RDOQ
-        const Double chromaLambda = estLambda / m_pcRdCost->getChromaWeight();
-        const Double lambdaArray[MAX_NUM_COMPONENT] = { estLambda, chromaLambda, chromaLambda };
-        m_pcTrQuant->setLambdas( lambdaArray );
-#else
-        m_pcTrQuant->setLambda( estLambda );
-#endif
-      }
-
-      m_pcRateCtrl->setRCQP( estQP );
-#if ADAPTIVE_QP_SELECTION
-      pCtu->getSlice()->setSliceQpBase( estQP );
-#endif
-    }
-
+      
     // run CTU trial encoder
-    m_pcCuEncoder->compressCtu( pCtu );
+    // Parallize this function
+      
+    if((ctuIndexArray[ctuTsAddr]/4)==0)
+    {
+        m_pcCuEncoderWPP[0].compressCtu(pCtu);
+    }
+    
+    if((ctuIndexArray[ctuTsAddr]/4)==1)
+    {
+        m_pcCuEncoderWPP[1].compressCtu(pCtu);
+    }
+      
+     // m_pcCuEncoder->compressCtu(pCtu);
 
 
     // All CTU decisions have now been made. Restore entropy coder to an initial stage, ready to make a true encode,
@@ -825,8 +865,16 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
     pRDSbacCoder->setBinsCoded( 0 );
 
     // encode CTU and calculate the true bit counters.
-    m_pcCuEncoder->encodeCtu( pCtu );
-
+    //m_pcCuEncoder->encodeCtu( pCtu );
+      if((ctuIndexArray[ctuTsAddr]/4)==0)
+      {
+          m_pcCuEncoderWPP[0].encodeCtu(pCtu);
+      }
+      
+      if((ctuIndexArray[ctuTsAddr]/4)==1)
+      {
+          m_pcCuEncoderWPP[1].encodeCtu(pCtu);
+      }
 
     pRDSbacCoder->setBinCountingEnableFlag( false );
 
@@ -861,40 +909,12 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
     {
       m_entropyCodingSyncContextState.loadContexts(m_pppcRDSbacCoder[0][CI_CURR_BEST]);
     }
-
-
-    if ( m_pcCfg->getUseRateCtrl() )
-    {
-      Int actualQP        = g_RCInvalidQPValue;
-      Double actualLambda = m_pcRdCost->getLambda();
-      Int actualBits      = pCtu->getTotalBits();
-      Int numberOfEffectivePixels    = 0;
-      for ( Int idx = 0; idx < pcPic->getNumPartitionsInCtu(); idx++ )
-      {
-        if ( pCtu->getPredictionMode( idx ) != NUMBER_OF_PREDICTION_MODES && ( !pCtu->isSkipped( idx ) ) )
-        {
-          numberOfEffectivePixels = numberOfEffectivePixels + 16;
-          break;
-        }
-      }
-
-      if ( numberOfEffectivePixels == 0 )
-      {
-        actualQP = g_RCInvalidQPValue;
-      }
-      else
-      {
-        actualQP = pCtu->getQP( 0 );
-      }
-      m_pcRdCost->setLambda(oldLambda, pcSlice->getSPS()->getBitDepths());
-      m_pcRateCtrl->getRCPic()->updateAfterCTU( m_pcRateCtrl->getRCPic()->getLCUCoded(), actualBits, actualQP, actualLambda,
-                                                pCtu->getSlice()->getSliceType() == I_SLICE ? 0 : m_pcCfg->getLCULevelRC() );
-    }
-
+      
+    //JCY: Critical section
     m_uiPicTotalBits += pCtu->getTotalBits();
     m_dPicRdCost     += pCtu->getTotalCost();
     m_uiPicDist      += pCtu->getTotalDistortion();
-  }
+  }*/
 
   // store context state at the end of this slice-segment, in case the next slice is a dependent slice and continues using the CABAC contexts.
   if( pcSlice->getPPS()->getDependentSliceSegmentsEnabledFlag() )
@@ -915,6 +935,180 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
   //{
   //  m_encCABACTableIdx = pcSlice->getSliceType();
   //}
+}
+
+void TEncSlice::threadTask(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int threadid)
+{
+    UInt currentIndex,lastCTUIndex;
+    
+    lastCTUIndex = boundingCtuTsAddr;
+    //printf("thread %d initiated\n",threadid);
+
+    while(1){
+        std::unique_lock<std::mutex> lock(m_threadpool.qlock);
+        currentIndex = m_threadpool.ctuIndex;
+        //printf("currentIndex %d\n",currentIndex);
+
+        //Thread exits when all CTUs are done
+        if(currentIndex == (lastCTUIndex))
+        {
+            return;
+        }
+        
+        //Check left CTU completeness (if cur ctu is not the first in a row, check its left ctu status)
+        if (((m_cWppScheduler.getWppIndex(m_threadpool.ctuIndex) % frameWidthInCtus) != 0)  && (m_cWppScheduler.m_ctuStatus[m_cWppScheduler.getWppIndex(m_threadpool.ctuIndex)- 1] != 1)){
+            //printf("ctu %d waits left ctu %d\n",ctuIndexArray[currentIndex],ctuIndexArray[currentIndex]-1);
+            
+            //If current ctu depends on previous ctu
+            //check the status of previous ctu.
+            m_threadpool.q_not_empty.wait(lock);
+        
+        //Check top-right CTU completeness (if top-right is not beyond frame, check its status)
+        } else if(((int)(m_cWppScheduler.getWppIndex(m_threadpool.ctuIndex) +1 - frameWidthInCtus) > 0) && (m_cWppScheduler.m_ctuStatus[m_cWppScheduler.getWppIndex(m_threadpool.ctuIndex)+1 - frameWidthInCtus] != 1)) {       
+            //printf("ctu %d waits top-right ctu %d\n",ctuIndexArray[currentIndex],ctuIndexArray[currentIndex]+1 - frameWidthInCtus);
+            
+            //If current ctu depends on previous ctu
+            //check the status of previous ctu.
+            m_threadpool.q_not_empty.wait(lock);
+        } else {
+            //printf("thread %d process ctu %d\n",threadid,ctuIndexArray[currentIndex]);
+          
+            m_threadpool.ctuIndex++;
+            //Process
+            lock.unlock();
+            encodeCTUWPP(pcPic, m_cWppScheduler.getWppIndex(currentIndex), pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr,    pRDSbacCoder, tempBitCounter, m_cWppScheduler.getWppIndex(currentIndex)/m_cWppScheduler.getCtuInRow());
+            m_cWppScheduler.m_ctuStatus[m_cWppScheduler.getWppIndex(currentIndex)] = 1;
+            
+            //Signal
+            m_threadpool.q_not_empty.notify_all();
+        }
+        
+        
+    }
+}
+
+void TEncSlice::encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id)
+{
+    
+    m_threadpool.cs.lock();
+    const UInt ctuRsAddr = pcPic->getPicSym()->getCtuTsToRsAddrMap(ctuTsAddr);
+    //printf("ctuRsAddr %d\n",ctuRsAddr);
+    
+    // initialize CTU encoder
+    TComDataCU* pCtu = pcPic->getCtu( ctuRsAddr );
+    pCtu->initCtu( pcPic, ctuRsAddr );
+    
+    // update CABAC state
+    const UInt firstCtuRsAddrOfTile = pcPic->getPicSym()->getTComTile(pcPic->getPicSym()->getTileIdxMap(ctuRsAddr))->getFirstCtuRsAddr();
+    const UInt tileXPosInCtus = firstCtuRsAddrOfTile % frameWidthInCtus;
+    const UInt ctuXPosInCtus  = ctuRsAddr % frameWidthInCtus;
+    
+    if (ctuRsAddr == firstCtuRsAddrOfTile)
+    {
+        m_pppcRDSbacCoder[0][CI_CURR_BEST]->resetEntropy(pcSlice);
+    }
+    else if ( ctuXPosInCtus == tileXPosInCtus && m_pcCfg->getWaveFrontsynchro())
+    {
+        // reset and then update contexts to the state at the end of the top-right CTU (if within current slice and tile).
+        m_pppcRDSbacCoder[0][CI_CURR_BEST]->resetEntropy(pcSlice);
+        // Sync if the Top-Right is available.
+        TComDataCU *pCtuUp = pCtu->getCtuAbove();
+        if ( pCtuUp && ((ctuRsAddr%frameWidthInCtus+1) < frameWidthInCtus)  )
+        {
+            TComDataCU *pCtuTR = pcPic->getCtu( ctuRsAddr - frameWidthInCtus + 1 );
+            if ( pCtu->CUIsFromSameSliceAndTile(pCtuTR) )
+            {
+                // Top-Right is available, we use it.
+                m_pppcRDSbacCoder[0][CI_CURR_BEST]->loadContexts( &m_entropyCodingSyncContextState );
+            }
+        }
+    }
+    
+    // set go-on entropy coder (used for all trial encodings - the cu encoder and encoder search also have a copy of the same pointer)
+    m_pcEntropyCoder->setEntropyCoder ( m_pcRDGoOnSbacCoder );
+    m_pcEntropyCoder->setBitstream( tempBitCounter );
+    tempBitCounter->resetBits();
+    m_pcRDGoOnSbacCoder->load( m_pppcRDSbacCoder[0][CI_CURR_BEST] ); // this copy is not strictly necessary here, but indicates that the GoOnSbacCoder
+    // is reset to a known state before every decision process.
+    
+    ((TEncBinCABAC*)m_pcRDGoOnSbacCoder->getEncBinIf())->setBinCountingEnableFlag(true);
+    
+    //Double oldLambda = m_pcRdCost->getLambda();
+    
+    // run CTU trial encoder
+    // Parallize this function
+    m_threadpool.cs.unlock();
+    
+    m_pcCuEncoderWPP[ctu_row_id].compressCtu(pCtu);
+
+    // m_pcCuEncoder->compressCtu(pCtu);
+    
+    
+    // All CTU decisions have now been made. Restore entropy coder to an initial stage, ready to make a true encode,
+    // which will result in the state of the contexts being correct. It will also count up the number of bits coded,
+    // which is used if there is a limit of the number of bytes per slice-segment.
+    
+    m_threadpool.cs.lock();
+    m_pcEntropyCoder->setEntropyCoder ( m_pppcRDSbacCoder[0][CI_CURR_BEST] );
+    m_pcEntropyCoder->setBitstream( tempBitCounter );
+    pRDSbacCoder->setBinCountingEnableFlag( true );
+    m_pppcRDSbacCoder[0][CI_CURR_BEST]->resetBits();
+    pRDSbacCoder->setBinsCoded( 0 );
+    
+    // encode CTU and calculate the true bit counters.
+    m_pcCuEncoder->encodeCtu( pCtu );
+    /*
+    if((ctuTsAddr/4)==0)
+    {
+        m_pcCuEncoderWPP[0].encodeCtu(pCtu);
+    }
+    
+    if((ctuTsAddr/4)==1)
+    {
+        m_pcCuEncoderWPP[1].encodeCtu(pCtu);
+    }
+    */
+    pRDSbacCoder->setBinCountingEnableFlag( false );
+    
+    const Int numberOfWrittenBits = m_pcEntropyCoder->getNumberOfWrittenBits();
+    
+    // Calculate if this CTU puts us over slice bit size.
+    // cannot terminate if current slice/slice-segment would be 0 Ctu in size,
+    const UInt validEndOfSliceCtuTsAddr = ctuTsAddr + (ctuTsAddr == startCtuTsAddr ? 1 : 0);
+    // Set slice end parameter
+    if(pcSlice->getSliceMode()==FIXED_NUMBER_OF_BYTES && pcSlice->getSliceBits()+numberOfWrittenBits > (pcSlice->getSliceArgument()<<3))
+    {
+        pcSlice->setSliceSegmentCurEndCtuTsAddr(validEndOfSliceCtuTsAddr);
+        pcSlice->setSliceCurEndCtuTsAddr(validEndOfSliceCtuTsAddr);
+        boundingCtuTsAddr=validEndOfSliceCtuTsAddr;
+    }
+    else if(pcSlice->getSliceSegmentMode()==FIXED_NUMBER_OF_BYTES && pcSlice->getSliceSegmentBits()+numberOfWrittenBits > (pcSlice->getSliceSegmentArgument()<<3))
+    {
+        pcSlice->setSliceSegmentCurEndCtuTsAddr(validEndOfSliceCtuTsAddr);
+        boundingCtuTsAddr=validEndOfSliceCtuTsAddr;
+    }
+    
+    if (boundingCtuTsAddr <= ctuTsAddr)
+    {
+        return;
+    }
+    
+    pcSlice->setSliceBits( (UInt)(pcSlice->getSliceBits() + numberOfWrittenBits) );
+    pcSlice->setSliceSegmentBits(pcSlice->getSliceSegmentBits()+numberOfWrittenBits);
+    
+    // Store probabilities of second CTU in line into buffer - used only if wavefront-parallel-processing is enabled.
+    if ( ctuXPosInCtus == tileXPosInCtus+1 && m_pcCfg->getWaveFrontsynchro())
+    {
+        m_entropyCodingSyncContextState.loadContexts(m_pppcRDSbacCoder[0][CI_CURR_BEST]);
+    }
+    
+    
+    //JCY: Critical section
+    m_uiPicTotalBits += pCtu->getTotalBits();
+    m_dPicRdCost     += pCtu->getTotalCost();
+    m_uiPicDist      += pCtu->getTotalDistortion();
+    
+    m_threadpool.cs.unlock();
 }
 
 Void TEncSlice::encodeSlice   ( TComPic* pcPic, TComOutputBitstream* pcSubstreams, UInt &numBinsCoded )

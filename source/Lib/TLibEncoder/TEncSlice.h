@@ -46,6 +46,10 @@
 #include "TEncCu.h"
 #include "WeightPredAnalysis.h"
 #include "TEncRateCtrl.h"
+#include <thread>
+#include <condition_variable>
+#include <mutex>
+#include <pthread.h>
 
 //! \ingroup TLibEncoder
 //! \{
@@ -58,9 +62,143 @@ class TEncGOP;
 // ====================================================================================================================
 
 /// slice encoder class
+
+class WPPScheduler{
+public:
+  WPPScheduler():m_uiCtuInRow(0),m_uiCtuInColumn(0),m_pWppOrderIndex(NULL)
+  {
+
+  }
+
+  WPPScheduler(int uiCtuInRow, int uiCtuInColumn):
+    m_uiCtuInRow(uiCtuInRow),m_uiCtuInColumn(uiCtuInColumn)
+  {
+    m_pWppOrderIndex = new int[uiCtuInRow * uiCtuInColumn];
+    m_ctuStatus      = new int[uiCtuInRow * uiCtuInColumn];
+  }
+
+  void SetWPPScheduler(int uiCtuInRow, int uiCtuInColumn)
+  {
+    m_uiCtuInRow = uiCtuInRow;
+    m_uiCtuInColumn = uiCtuInColumn;
+
+    if(m_pWppOrderIndex==NULL)
+      m_pWppOrderIndex = new int[uiCtuInRow * uiCtuInColumn];
+
+    if(m_ctuStatus==NULL)
+      m_ctuStatus      = new int[uiCtuInRow * uiCtuInColumn];
+
+  }
+
+  ~WPPScheduler(){
+    if(m_pWppOrderIndex!=NULL)
+      delete m_pWppOrderIndex;
+
+    if(m_ctuStatus!=NULL)
+      delete m_ctuStatus;
+  }
+
+  void CalculateWppCtuAddress()
+  {
+    int uiCtuWFAddress=0;
+    int uiDiagStartX=0;
+    int uiDiagStartY=0;
+    int uiCtuInRow = m_uiCtuInRow;
+    int uiCtuInColumn = m_uiCtuInColumn;
+    int uiCtuAddress;
+    int uiCtuY,uiCtuX;
+    int TotalCtu = uiCtuInRow * uiCtuInColumn;
+      
+    for(uiCtuAddress=0;uiCtuAddress<TotalCtu;uiCtuAddress++)
+    {
+      uiCtuY           = uiCtuWFAddress / uiCtuInRow;
+      uiCtuX          = uiCtuWFAddress % uiCtuInRow;
+
+      m_pWppOrderIndex[uiCtuAddress] = uiCtuWFAddress;
+        
+      if(uiCtuX != 0 && uiCtuY != (uiCtuInColumn -1) && uiDiagStartX != (uiCtuInRow - 1)) // 30 is a magic nuCtuer to be replaced by uiCtuInColumn
+      {
+        if( (uiCtuWFAddress + uiCtuInRow - 2) < (uiCtuWFAddress/uiCtuInRow + 1) * uiCtuInRow)
+              {
+                  uiDiagStartX++;
+                  uiCtuWFAddress = uiDiagStartX + uiDiagStartY * uiCtuInRow;
+              } else {
+                  uiCtuWFAddress = uiCtuWFAddress + (uiCtuInRow - 2);
+            }
+      } else {
+              if( uiDiagStartX > (uiCtuInRow - 1) || uiDiagStartY > (uiCtuInColumn - 1))
+                  printf("Wave front overflow!");
+              
+        if ( uiDiagStartX != uiCtuInRow - 1) {
+                  uiDiagStartX += 1;
+ 
+              } else {
+                  uiDiagStartX -= 2;
+                  uiDiagStartY += 1;
+              }
+         
+        uiCtuWFAddress = uiDiagStartX + uiDiagStartY * uiCtuInRow;
+      }
+        }
+    
+    m_pWppOrderIndex[uiCtuWFAddress] = uiCtuWFAddress;
+  }
+
+  void printWppIndex() const {
+    printf("\n");
+    for(int i=0;i<m_uiCtuInRow*m_uiCtuInColumn;i++)
+      printf("%d,",m_pWppOrderIndex[i]);
+    printf("\n");
+
+  }
+
+  int getWppIndex(int RasterScanOrderIndex) const {
+    return m_pWppOrderIndex[RasterScanOrderIndex];
+  }
+
+  int getCtuInRow() const {
+    return m_uiCtuInRow;
+  }
+
+  int getCtuInColumn() const {
+    return m_uiCtuInColumn;
+  }
+  
+  void resetStatus()
+  {
+    memset(m_ctuStatus,0,sizeof(int)*m_uiCtuInRow*m_uiCtuInColumn);
+  }
+
+public:
+  int *m_ctuStatus;
+
+private:
+  int m_uiCtuInRow;
+  int m_uiCtuInColumn;
+  int *m_pWppOrderIndex;
+};
+
 class TEncSlice
   : public WeightPredAnalysis
 {
+    
+    //multi-threading
+public:
+ 
+    typedef struct threadpool {
+        // you should fill in this structure with whatever you need
+        int ctuIndex;
+        int num_threads;	//number of active threads
+        std::thread *threads;	//pointer to threads
+        std::mutex qlock;		//lock on the queue list
+        std::mutex cs;
+        std::condition_variable q_not_empty;	//non empty and empty condidtion vairiables
+        int shutdown;
+        int dont_accept;
+    } threadpool;
+    
+    threadpool m_threadpool;
+    WPPScheduler m_cWppScheduler;
 private:
   // encoder configuration
   TEncCfg*                m_pcCfg;                              ///< encoder configuration class
@@ -73,7 +211,7 @@ private:
   // processing units
   TEncGOP*                m_pcGOPEncoder;                       ///< GOP encoder
   TEncCu*                 m_pcCuEncoder;                        ///< CU encoder
-
+  TEncCu*                 m_pcCuEncoderWPP;
   // encoder search
   TEncSearch*             m_pcPredSearch;                       ///< encoder search class
 
@@ -105,7 +243,10 @@ private:
 public:
   TEncSlice();
   virtual ~TEncSlice();
-
+   
+  void encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id);
+  void threadTask(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int threadid);
+    
   Void    create              ( Int iWidth, Int iHeight, ChromaFormat chromaFormat, UInt iMaxCUWidth, UInt iMaxCUHeight, UChar uhTotalDepth );
   Void    destroy             ();
   Void    init                ( TEncTop* pcEncTop );

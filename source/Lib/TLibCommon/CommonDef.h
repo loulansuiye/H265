@@ -115,8 +115,8 @@ inline Int64 abs (Int64 x) { return _abs64(x); };
 
 #define MAX_GOP                     64          ///< max. value of hierarchical GOP size
 
-#define MAX_NUM_REF_PICS            16          ///< max. number of pictures used for reference
-#define MAX_NUM_REF                 16          ///< max. number of entries in picture reference list
+#define MAX_NUM_REF_PICS            32          ///< max. number of pictures used for reference
+#define MAX_NUM_REF                 32          ///< max. number of entries in picture reference list
 
 #define MAX_UINT                    0xFFFFFFFFU ///< max. value of unsigned 32-bit integer
 #define MAX_INT                     2147483647  ///< max. value of signed 32-bit integer
@@ -298,5 +298,8 @@ enum NalUnitType
 
 //! \}
 
+//JCY
+#define WPP_THREAD_NUM 1
+#define WPP_NUM_ROWS 25 //For height <= 1600
 #endif // end of #ifndef  __COMMONDEF__
 

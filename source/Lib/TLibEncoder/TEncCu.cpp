@@ -34,18 +34,19 @@
 /** \file     TEncCu.cpp
     \brief    Coding Unit (CU) encoder class
 */
-#include <nvToolsExtCuda.h>
-#include <nvToolsExtCudaRt.h>
+
 #include <stdio.h>
 #include "TEncTop.h"
 #include "TEncCu.h"
 #include "TEncAnalyze.h"
 #include "TLibCommon/Debug.h"
+#include <mutex>
 
 #include <cmath>
 #include <algorithm>
 using namespace std;
 
+std::mutex encodemtx;
 
 //! \ingroup TLibEncoder
 //! \{
@@ -219,6 +220,22 @@ Void TEncCu::init( TEncTop* pcEncTop )
   m_pcRateCtrl         = pcEncTop->getRateCtrl();
 }
 
+Void TEncCu::initWPP             ( TEncTop* pcEncTop, Int i)
+{
+    m_pcEncCfg           = pcEncTop;
+    m_pcPredSearch       = &pcEncTop->m_cSearchWPP[i];
+    m_pcTrQuant          = &pcEncTop->m_cTrQuantWPP[i];
+    m_pcRdCost           = &pcEncTop->m_cRdCostWPP[i];
+    
+    m_pcEntropyCoder     = pcEncTop->getEntropyCoder();//m_cEntropyCoderWPP[i];
+    m_pcBinCABAC         = pcEncTop->getBinCABAC();//m_cBinCABACWPP[i];
+    
+    m_pppcRDSbacCoder    = pcEncTop->getRDSbacCoder();// pcEncTop->m_pppcRDSbacCoderWPP[i];
+    m_pcRDGoOnSbacCoder  = pcEncTop->getRDGoOnSbacCoder();//&pcEncTop->m_cRDGoOnSbacCoderWPP[i];
+    
+    m_pcRateCtrl         = pcEncTop->getRateCtrl();
+    
+}
 // ====================================================================================================================
 // Public member functions
 // ====================================================================================================================
@@ -234,10 +251,8 @@ Void TEncCu::compressCtu( TComDataCU* pCtu )
 
   // analysis of CU
   DEBUG_STRING_NEW(sDebug)
-
   xCompressCU( m_ppcBestCU[0], m_ppcTempCU[0], 0 DEBUG_STRING_PASS_INTO(sDebug) );
   DEBUG_STRING_OUTPUT(std::cout, sDebug)
-
 #if ADAPTIVE_QP_SELECTION
   if( m_pcEncCfg->getUseAdaptQpSelect() )
   {
@@ -633,6 +648,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
 
         // do normal intra modes
         // speedup for inter frames
+
         Double intraCost = 0.0;
 
         if((rpcBestCU->getSlice()->getSliceType() == I_SLICE)                                     ||
@@ -640,7 +656,10 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
           ((rpcBestCU->getCbf( 0, COMPONENT_Cb ) != 0) && (numberValidComponents > COMPONENT_Cb)) ||
           ((rpcBestCU->getCbf( 0, COMPONENT_Cr ) != 0) && (numberValidComponents > COMPONENT_Cr))  ) // avoid very complex intra if it is unlikely
         {
+            encodemtx.lock();
           xCheckRDCostIntra( rpcBestCU, rpcTempCU, intraCost, SIZE_2Nx2N DEBUG_STRING_PASS_INTO(sDebug) );
+            encodemtx.unlock();
+
           rpcTempCU->initEstData( uiDepth, iQP, bIsLosslessMode );
           if( uiDepth == sps.getLog2DiffMaxMinCodingBlockSize() )
           {
@@ -672,6 +691,7 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
         {
           iQP = iMinQP;
         }
+
       }
     }
 
@@ -1330,8 +1350,6 @@ Void TEncCu::xCheckRDCostIntra( TComDataCU *&rpcBestCU,
                                 PartSize     eSize
                                 DEBUG_STRING_FN_DECLARE(sDebug) )
 {
-  //nvtxRangePushA("Intra Prediction");
-
   DEBUG_STRING_NEW(sTest)
 
   UInt uiDepth = rpcTempCU->getDepth( 0 );
@@ -1384,8 +1402,6 @@ Void TEncCu::xCheckRDCostIntra( TComDataCU *&rpcBestCU,
   cost = rpcTempCU->getTotalCost();
 
   xCheckBestMode(rpcBestCU, rpcTempCU, uiDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTest));
-  //nvtxRangePop(); //JCY
-
 }
 
 

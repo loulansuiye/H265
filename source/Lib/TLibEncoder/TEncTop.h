@@ -67,6 +67,24 @@
 /// encoder class
 class TEncTop : public TEncCfg
 {
+public:
+  TEncSearch              m_cSearchWPP[WPP_NUM_ROWS]; //JCY: for WPP
+  TComTrQuant             m_cTrQuantWPP[WPP_NUM_ROWS]; //JCY: for WPP
+  TEncCu                  m_cCuEncoderWPP[WPP_NUM_ROWS]; //JCY: for WPP
+  TComRdCost              m_cRdCostWPP[WPP_NUM_ROWS];   //JCY: for WPP
+  
+  TEncEntropy             m_cEntropyCoderWPP[WPP_NUM_ROWS];    //JCY: for WPP
+  TEncBinCABAC            m_cBinCABACWPP[WPP_NUM_ROWS];
+
+  TEncBinCABACCounter***  m_pppcBinCoderCABACWPP[WPP_NUM_ROWS];            ///< temporal CABAC state storage for RD computation
+  TEncBinCABACCounter     m_cRDGoOnBinCoderCABACWPP[WPP_NUM_ROWS];         ///< going on bin coder CABAC for RD stage
+
+  TEncSbac***             m_pppcRDSbacCoderWPP[WPP_NUM_ROWS];              ///< temporal storage for RD computation
+  TEncSbac                m_cRDGoOnSbacCoderWPP[WPP_NUM_ROWS]; //JCY: for WPP
+
+   //  TEncRateCtrl*           m_pcRateCtrl;
+  //m_pcRateCtrl may not be necessary
+
 private:
   // picture
   Int                     m_iPOCLast;                     ///< time index (POC)
@@ -143,6 +161,8 @@ public:
   TEncGOP*                getGOPEncoder         () { return  &m_cGOPEncoder;          }
   TEncSlice*              getSliceEncoder       () { return  &m_cSliceEncoder;        }
   TEncCu*                 getCuEncoder          () { return  &m_cCuEncoder;           }
+  TEncCu*                 getCuEncoderWPP       () { return  m_cCuEncoderWPP;         } //JCY: return the address of cuEncoder array for WPP
+
   TEncEntropy*            getEntropyCoder       () { return  &m_cEntropyCoder;        }
   TEncCavlc*              getCavlcCoder         () { return  &m_cCavlcCoder;          }
   TEncSbac*               getSbacCoder          () { return  &m_cSbacCoder;           }

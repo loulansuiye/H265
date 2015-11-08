@@ -100,7 +100,7 @@ private:
 public:
   /// copy parameters from encoder class
   Void  init                ( TEncTop* pcEncTop );
-
+  Void  initWPP             ( TEncTop* pcEncTop, Int i);
   /// create internal buffers
   Void  create              ( UChar uhTotalDepth, UInt iMaxWidth, UInt iMaxHeight, ChromaFormat chromaFormat );
 
