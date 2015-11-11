@@ -200,22 +200,12 @@ TEncSearch::~TEncSearch()
   m_pcQTTempTransformSkipTComYuv.destroy();
 
   m_tmpYuvPred.destroy();
-}
 
-
-Void TEncSearch::destroy() //JCY
-{
-  m_pcHostGPU->destroy();
-  m_pcCPU->destroy();
-
-  //JCY Free GPU pointers
-  GPU::MemOpt::FreeDeviceMem<GpuMeDataAccess>(m_pcDevGPU);
-
-  //JCY Free CPU pointers
+  //JCY
+  m_pcHostGPU->Destroy();
   delete m_pcHostGPU;
-  delete m_pcCPU;
-  delete m_pGpuSearch;
 }
+ 
 
 
 Void TEncSearch::init(TEncCfg*      pcEncCfg,
@@ -233,21 +223,10 @@ Void TEncSearch::init(TEncCfg*      pcEncCfg,
                       )
 {
   //JCY
-  GPU::MemOpt::AllocDeviceMem<GpuMeDataAccess*>(m_pcDevGPU, sizeof(GpuMeDataAccess));
-
-  m_pcCPU      = new CpuMeDataAccess(pcEncCfg->getSourceWidth(), pcEncCfg->getSourceHeight(), pcEncCfg->getGOPSize());
   m_pcHostGPU  = new GpuMeDataAccess(pcEncCfg->getSourceWidth(), pcEncCfg->getSourceHeight(), pcEncCfg->getGOPSize());
-  m_pGpuSearch = new GpuSearch(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
-
-  m_pcCPU->initSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
-  m_pcHostGPU->initSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
-  
-  m_pcCPU->init();
-  m_pcHostGPU->init();
-  m_pGpuSearch->init();
-
-
-  //~JCY
+  m_pcHostGPU->InitSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
+  m_pcHostGPU->Init();
+   //~JCY
 
   
   m_pcEncCfg             = pcEncCfg;
@@ -3785,15 +3764,16 @@ Void TEncSearch::xMotionEstimation( TComDataCU* pcCU, TComYuv* pcYuvOrg, Int iPa
 
     Pel* piYORG = pcCU->getSlice()->getRefPic( eRefPicList, iRefIdxPred )->getPicYuvRec()->getBuf(COMPONENT_Y);
     
-    Int iNumCTUPerRow = (m_pcHostGPU->m_iFrameWidth + 63) / 64;
+    Int iNumCTUPerRow = (m_pcHostGPU->GetFrameWidth() + 63) / 64;
     Int iPUOffset =  (pcCU->getCtuRsAddr()%iNumCTUPerRow * 64) + (pcCU->getCtuRsAddr()/iNumCTUPerRow)*64*iRefStride + (g_auiZscanToRaster[(pcCU->getZorderIdxInCtu() + uiPartAddr)]%16 * 4)+ (g_auiZscanToRaster[(pcCU->getZorderIdxInCtu() + uiPartAddr)]/16) * 4 * iRefStride;
 
-    if((piRefY - piYORG) != iPUOffset + m_pcHostGPU->getLOrgOffset())
+    if((piRefY - piYORG) != iPUOffset + m_pcHostGPU->GetLOrgOffset())
     {
-      printf("Wrong iPUOffset: Correct: %ld Incorrect: %d\n",piRefY-piYORG-m_pcHostGPU->getLOrgOffset(),iPUOffset); 
+      printf("Wrong iPUOffset: Correct: %ld Incorrect: %d\n",piRefY-piYORG-m_pcHostGPU->GetLOrgOffset(),iPUOffset); 
     }
 
-    m_pcHostGPU->preparePU(iPUOffset,iRoiWidth,iRoiHeight, eRefPicList == REF_PIC_LIST_0 ? 0 : 1, iRefIdxPred, m_pcRdCost->getMvPred().getHor(), m_pcRdCost->getMvPred().getVer(), m_pcRdCost->getCost(), m_pcRdCost->getCostScale());
+    m_pcHostGPU->PreparePU(iPUOffset,iRoiWidth,iRoiHeight, eRefPicList == REF_PIC_LIST_0 ? 0 : 1, iRefIdxPred, m_pcRdCost->getMvPred().getHor(), m_pcRdCost->getMvPred().getVer(), m_pcRdCost->getCost(), m_pcRdCost->getCostScale());
+    
     clock_t lBefore = clock();
     switch(m_iFastSearch)
     {
@@ -3805,27 +3785,9 @@ Void TEncSearch::xMotionEstimation( TComDataCU* pcCU, TComYuv* pcYuvOrg, Int iPa
       case 4:          
             xGpuFullBlockSearch ( pcCU, pcPatternKey, piRefY, iRefStride, &cMvSrchRngLT, &cMvSrchRngRB, rcMv, ruiCost );
             break;
-      case 5:
-            const TComMv *pIntegerMv2Nx2NPred=0;
-            if (pcCU->getPartitionSize(0) != SIZE_2Nx2N || pcCU->getDepth(0) != 0)
-            {
-              pIntegerMv2Nx2NPred = &(m_integerMv2Nx2N[eRefPicList][iRefIdxPred]);
-            }
-
-            xHeteroSearch ( pcCU, pcPatternKey, piRefY, iRefStride, &cMvSrchRngLT, &cMvSrchRngRB, rcMv, ruiCost, pIntegerMv2Nx2NPred);
-
-            if (pcCU->getPartitionSize(0) == SIZE_2Nx2N)
-            {
-              m_integerMv2Nx2N[eRefPicList][iRefIdxPred] = rcMv;
-            }
-            break;
     }
-	dTotalIntMeTime += (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
-  if(dTotalIntMeTime==0)
-  {
-    //printf("clock() Error 1\n");
-  }
-
+	  dTotalIntMeTime += (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
+  
   }//~JCY
   else
   {
@@ -3983,62 +3945,16 @@ Void TEncSearch::xGpuFullBlockSearch(TComDataCU*   pcCU,
   
   //-------------------------------------------------------------------------------------------------------//
   if ((bEnableRasterSearch && ((Int)(cStruct.uiBestDistance) > iRaster)) )
-  //if(cStruct.iBestX!=0 || cStruct.iBestY!=0)
   {   
-    if(m_pcHostGPU->m_iPUWidth > 4 && m_pcHostGPU->m_iPUHeight > 4)
+    if(m_pcHostGPU->GetPUWidth() > 4 && m_pcHostGPU->GetPUHeight() > 4)
     {
-      m_pcHostGPU->m_ilx = pcMvSrchRngLT->getHor();
-      m_pcHostGPU->m_irx = pcMvSrchRngRB->getHor();
-      m_pcHostGPU->m_ity = pcMvSrchRngLT->getVer();
-      m_pcHostGPU->m_iby = pcMvSrchRngRB->getVer();
-      
-      //Fixing rcMvPred out-of-bound/Clipping problem (May affect RD performance)
-      //Force search width to 2^N
-      if((-m_pcHostGPU->m_ilx+m_pcHostGPU->m_irx) != m_pcHostGPU->m_iSearchRange * 2)
-      {
-         m_pcHostGPU->m_ilx = -m_pcHostGPU->m_iSearchRange;
-         m_pcHostGPU->m_irx =  m_pcHostGPU->m_iSearchRange;
-      }
-
-      
-      //search height forcing is optional
-      //if((-m_pcHostGPU->m_ity + m_pcHostGPU->m_iby) != m_pcHostGPU->m_iSearchRange * 2)
-      //{
-      //   m_pcHostGPU->m_ity = -m_pcHostGPU->m_iSearchRange;
-      //   m_pcHostGPU->m_iby =  m_pcHostGPU->m_iSearchRange;
-      //}
-      
-      //Test
-      //m_pcHostGPU->m_ity = -m_pcHostGPU->m_iSearchRange + 32;
-      //m_pcHostGPU->m_iby = 32;
-      //~Test
-      
-      if(m_pcHostGPU->m_iRefListId==0)
-      {//Top-left for the PU of current SR
-        m_pcHostGPU->m_pYRefPU = m_pcHostGPU->m_cYRefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset   + m_pcHostGPU->m_ity   * iRefStride   + m_pcHostGPU->m_ilx;
-        m_pcHostGPU->m_pURefPU = m_pcHostGPU->m_cURefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-        m_pcHostGPU->m_pVRefPU = m_pcHostGPU->m_cVRefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-      }
-      else
-      {//Top-left for the PU of current SR
-        m_pcHostGPU->m_pYRefPU = m_pcHostGPU->m_cYRefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset   + m_pcHostGPU->m_ity   * iRefStride   + m_pcHostGPU->m_ilx;
-        m_pcHostGPU->m_pURefPU = m_pcHostGPU->m_cURefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-        m_pcHostGPU->m_pVRefPU = m_pcHostGPU->m_cVRefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-      }
-
-      m_pcHostGPU->m_pYOrgPU = m_pcHostGPU->m_cYList[0] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset;
-      m_pcHostGPU->m_pUOrgPU = m_pcHostGPU->m_cUList[0] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4;
-      m_pcHostGPU->m_pVOrgPU = m_pcHostGPU->m_cVList[0] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4;
-   
-      //nvtxRangePushA("GPU Search");
-      //This transfer takes 4s in 8 frames
-      //GPU::MemOpt::TransferToDevice<GpuMeDataAccess*>(miSrchRngHorLeftiSrchRngHorLeft_pcHostGPU, m_pcDevGPU, sizeof(GpuMeDataAccess));
-      GPU::Kernel::gpuGpuFullBlockSearch(m_pcHostGPU,m_pcDevGPU, iRefStride);
-      //nvtxRangePop();
-
-      rcMv.set(m_pcHostGPU->m_iMvX, m_pcHostGPU->m_iMvY);
-      ruiSAD = m_pcHostGPU->m_uiSad - m_pcRdCost->getCost( m_pcHostGPU->m_iMvX, m_pcHostGPU->m_iMvY );
-      //printf("%u %u\n",ruiSAD, m_pcHostGPU->m_uiSad);
+      m_pcHostGPU->SetSearchWindowSize(pcMvSrchRngLT->getHor(),pcMvSrchRngRB->getHor(),pcMvSrchRngLT->getVer(),pcMvSrchRngRB->getVer());
+      m_pcHostGPU->SetSearchWindowPtr();
+      m_pcHostGPU->SetPuPtr();
+      m_pcHostGPU->GpuSearchWrapper();
+ 
+      rcMv.set(m_pcHostGPU->GetMvX(), m_pcHostGPU->GetMvY());
+      ruiSAD = m_pcHostGPU->GetSad() - m_pcRdCost->getCost( m_pcHostGPU->GetMvX(), m_pcHostGPU->GetMvY() );
     }
     else
     {
@@ -4252,281 +4168,6 @@ Void TEncSearch::xBlockFastSearch(TComDataCU*   pcCU,
     ruiSAD = uiSadBest - m_pcRdCost->getCost( iBestX, iBestY );
    // printf("%u %u\n",ruiSAD, uiSadBest);
   //}
-  return;
-}
-
-//JCY #3
-Void TEncSearch::xHeteroSearch(TComDataCU*   pcCU,
-                               TComPattern*  pcPatternKey,
-                               Pel*          piRefY,
-                               Int           iRefStride,
-                               TComMv*       pcMvSrchRngLT,
-                               TComMv*       pcMvSrchRngRB,
-                               TComMv       &rcMv,
-                               Distortion   &ruiSAD,
-                               const TComMv* pIntegerMv2Nx2NPred  )
-{
-  assert (MD_LEFT < NUM_MV_PREDICTORS);
-  pcCU->getMvPredLeft       ( m_acMvPredictors[MD_LEFT] );
-  assert (MD_ABOVE < NUM_MV_PREDICTORS);
-  pcCU->getMvPredAbove      ( m_acMvPredictors[MD_ABOVE] );
-  assert (MD_ABOVE_RIGHT < NUM_MV_PREDICTORS);
-  pcCU->getMvPredAboveRight ( m_acMvPredictors[MD_ABOVE_RIGHT] );
-
-  
-  //pcMvSrchRngLT->setVer(pcMvSrchRngLT->getVer() + 32);
-  //pcMvSrchRngLT->setVer(0);
-  //pcMvSrchRngRB->setVer(pcMvSrchRngRB->getVer() - 32);
-
-  Int   iSrchRngHorLeft   = pcMvSrchRngLT->getHor();
-  Int   iSrchRngHorRight  = pcMvSrchRngRB->getHor();
-  Int   iSrchRngVerTop    = pcMvSrchRngLT->getVer();
-  Int   iSrchRngVerBottom = pcMvSrchRngRB->getVer();
-
-
-
-  TZ_SEARCH_CONFIGURATION
-
-  UInt uiSearchRange = m_iSearchRange;
-  pcCU->clipMv( rcMv );
-  rcMv >>= 2;
-  // init TZSearchStruct
-  IntTZSearchStruct cStruct;
-  cStruct.iYStride    = iRefStride;
-  cStruct.piRefY      = piRefY;
-  cStruct.uiBestSad   = MAX_UINT;
-
-  // set rcMv (Median predictor) as start point and as best point
-  xTZSearchHelp( pcPatternKey, cStruct, rcMv.getHor(), rcMv.getVer(), 0, 0 );
-
-  // test whether one of PRED_A, PRED_B, PRED_C MV is better start point than Median predictor
-  if ( bTestOtherPredictedMV )
-  {
-    for ( UInt index = 0; index < NUM_MV_PREDICTORS; index++ )
-    {
-      TComMv cMv = m_acMvPredictors[index];
-      pcCU->clipMv( cMv );
-      cMv >>= 2;
-      xTZSearchHelp( pcPatternKey, cStruct, cMv.getHor(), cMv.getVer(), 0, 0 );
-    }
-  }
-
-  // test whether zero Mv is better start point than Median predictor
-  if ( bTestZeroVector )
-  {
-    xTZSearchHelp( pcPatternKey, cStruct, 0, 0, 0, 0 );
-  }
-
-  if (pIntegerMv2Nx2NPred != 0)
-  {
-    TComMv integerMv2Nx2NPred = *pIntegerMv2Nx2NPred;
-    integerMv2Nx2NPred <<= 2;
-    pcCU->clipMv( integerMv2Nx2NPred );
-    integerMv2Nx2NPred >>= 2;
-    xTZSearchHelp(pcPatternKey, cStruct, integerMv2Nx2NPred.getHor(), integerMv2Nx2NPred.getVer(), 0, 0);
-
-    // reset search range
-    TComMv cMvSrchRngLT;
-    TComMv cMvSrchRngRB;
-    Int iSrchRng = m_iSearchRange;
-    TComMv currBestMv(cStruct.iBestX, cStruct.iBestY );
-    currBestMv <<= 2;
-    xSetSearchRange( pcCU, currBestMv, iSrchRng, cMvSrchRngLT, cMvSrchRngRB );
-    iSrchRngHorLeft   = cMvSrchRngLT.getHor();
-    iSrchRngHorRight  = cMvSrchRngRB.getHor();
-    iSrchRngVerTop    = cMvSrchRngLT.getVer();
-    iSrchRngVerBottom = cMvSrchRngRB.getVer();
-  }
-
-  // start search
-  Int  iDist = 0;
-  Int  iStartX = cStruct.iBestX;
-  Int  iStartY = cStruct.iBestY;
-
-  // first search
-  for ( iDist = 1; iDist <= 4; iDist*=2 )
-  {
-    if ( bFirstSearchDiamond == 1 )
-    {
-      xTZ8PointDiamondSearch ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-    }
-    else
-    {
-      xTZ8PointSquareSearch  ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-    }
-
-    if ( bFirstSearchStop && ( cStruct.uiBestRound >= uiFirstSearchRounds ) ) // stop criterion
-    {
-      break;
-    }
-  }
-
-  //--------------------GPU starts---------------------//
-  if ((bEnableRasterSearch && ((Int)(cStruct.uiBestDistance) > iRaster)) )
-  //if(cStruct.iBestX!=0 || cStruct.iBestY!=0)
-  {   
-    m_pcHostGPU->m_ilx = pcMvSrchRngLT->getHor();
-    m_pcHostGPU->m_irx = pcMvSrchRngRB->getHor();
-    m_pcHostGPU->m_ity = pcMvSrchRngLT->getVer();
-    m_pcHostGPU->m_iby = pcMvSrchRngRB->getVer();
-    
-    //Fixing rcMvPred out-of-bound/Clipping problem (May affect RD performance)
-    //Force search width to 2^N
-    if((-m_pcHostGPU->m_ilx+m_pcHostGPU->m_irx) != m_pcHostGPU->m_iSearchRange * 2)
-    {
-       m_pcHostGPU->m_ilx = -m_pcHostGPU->m_iSearchRange;
-       m_pcHostGPU->m_irx =  m_pcHostGPU->m_iSearchRange;
-    }
-
-    //Test
-    m_pcHostGPU->m_ity = -m_pcHostGPU->m_iSearchRange + 32;
-    m_pcHostGPU->m_iby = 32;
-    //~Test
-    
-    if(m_pcHostGPU->m_iRefListId==0)
-    {//Top-left for the PU of current SR
-      m_pcHostGPU->m_pYRefPU = m_pcHostGPU->m_cYRefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset   + m_pcHostGPU->m_ity   * iRefStride   + m_pcHostGPU->m_ilx;
-      m_pcHostGPU->m_pURefPU = m_pcHostGPU->m_cURefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-      m_pcHostGPU->m_pVRefPU = m_pcHostGPU->m_cVRefList0[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-    }
-    else
-    {//Top-left for the PU of current SR
-      m_pcHostGPU->m_pYRefPU = m_pcHostGPU->m_cYRefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset   + m_pcHostGPU->m_ity   * iRefStride   + m_pcHostGPU->m_ilx;
-      m_pcHostGPU->m_pURefPU = m_pcHostGPU->m_cURefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-      m_pcHostGPU->m_pVRefPU = m_pcHostGPU->m_cVRefList1[m_pcHostGPU->m_iRefId] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4 + m_pcHostGPU->m_ity/2 * iRefStride/2 + m_pcHostGPU->m_ilx/2;
-    }
-
-    m_pcHostGPU->m_pYOrgPU = m_pcHostGPU->m_cYList[0] + m_pcHostGPU->getLOrgOffset() + m_pcHostGPU->m_iPUOffset;
-    m_pcHostGPU->m_pUOrgPU = m_pcHostGPU->m_cUList[0] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4;
-    m_pcHostGPU->m_pVOrgPU = m_pcHostGPU->m_cVList[0] + m_pcHostGPU->getCOrgOffset() + m_pcHostGPU->m_iPUOffset/4;
-
-    GPU::Kernel::gpuGpuFullBlockSearch0(m_pcHostGPU,m_pcDevGPU, iRefStride); //Return immediately
-    
-   // rcMv.set(m_pcHostGPU->m_iMvX, m_pcHostGPU->m_iMvY);
-   // ruiSAD = m_pcHostGPU->m_uiSad - m_pcRdCost->getCost( m_pcHostGPU->m_iMvX, m_pcHostGPU->m_iMvY );
-    //printf("%u %u\n",ruiSAD, m_pcHostGPU->m_uiSad);
-
-  }
-   
-  //--------------------TZSearch starts--------------------//
- 
-  // test whether zero Mv is a better start point than Median predictor
-  if ( bTestZeroVectorStart && ((cStruct.iBestX != 0) || (cStruct.iBestY != 0)) )
-  {
-    xTZSearchHelp( pcPatternKey, cStruct, 0, 0, 0, 0 );
-    if ( (cStruct.iBestX == 0) && (cStruct.iBestY == 0) )
-    {
-      // test its neighborhood
-      for ( iDist = 1; iDist <= (Int)uiSearchRange; iDist*=2 )
-      {
-        xTZ8PointDiamondSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, 0, 0, iDist );
-        if ( bTestZeroVectorStop && (cStruct.uiBestRound > 0) ) // stop criterion
-        {
-          break;
-        }
-      }
-    }
-  }
-
-  // calculate only 2 missing points instead 8 points if cStruct.uiBestDistance == 1
-  if ( cStruct.uiBestDistance == 1 )
-  {
-    cStruct.uiBestDistance = 0;
-    xTZ2PointSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB );
-  }
-
-  // raster search if distance is too big
-  if ( bEnableRasterSearch && ( ((Int)(cStruct.uiBestDistance) > iRaster) || bAlwaysRasterSearch ) )
-  {
-    cStruct.uiBestDistance = iRaster;
-    for ( iStartY = iSrchRngVerTop; iStartY <= iSrchRngVerBottom; iStartY += iRaster )
-    {
-      for ( iStartX = iSrchRngHorLeft; iStartX <= iSrchRngHorRight; iStartX += iRaster )
-      {
-        xTZSearchHelp( pcPatternKey, cStruct, iStartX, iStartY, 0, iRaster );
-      }
-    }
-  }
-
-  // raster refinement
-  if ( bRasterRefinementEnable && cStruct.uiBestDistance > 0 )
-  {
-    while ( cStruct.uiBestDistance > 0 )
-    {
-      iStartX = cStruct.iBestX;
-      iStartY = cStruct.iBestY;
-      if ( cStruct.uiBestDistance > 1 )
-      {
-        iDist = cStruct.uiBestDistance >>= 1;
-        if ( bRasterRefinementDiamond == 1 )
-        {
-          xTZ8PointDiamondSearch ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-        }
-        else
-        {
-          xTZ8PointSquareSearch  ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-        }
-      }
-
-      // calculate only 2 missing points instead 8 points if cStruct.uiBestDistance == 1
-      if ( cStruct.uiBestDistance == 1 )
-      {
-        cStruct.uiBestDistance = 0;
-        if ( cStruct.ucPointNr != 0 )
-        {
-          xTZ2PointSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB );
-        }
-      }
-    }
-  }
-
-  // start refinement
-  if ( bStarRefinementEnable && cStruct.uiBestDistance > 0 )
-  {
-    while ( cStruct.uiBestDistance > 0 )
-    {
-      iStartX = cStruct.iBestX;
-      iStartY = cStruct.iBestY;
-      cStruct.uiBestDistance = 0;
-      cStruct.ucPointNr = 0;
-      for ( iDist = 1; iDist < (Int)uiSearchRange + 1; iDist*=2 )
-      {
-        if ( bStarRefinementDiamond == 1 )
-        {
-          xTZ8PointDiamondSearch ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-        }
-        else
-        {
-          xTZ8PointSquareSearch  ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
-        }
-        if ( bStarRefinementStop && (cStruct.uiBestRound >= uiStarRefinementRounds) ) // stop criterion
-        {
-          break;
-        }
-      }
-
-      // calculate only 2 missing points instead 8 points if cStrukt.uiBestDistance == 1
-      if ( cStruct.uiBestDistance == 1 )
-      {
-        cStruct.uiBestDistance = 0;
-        if ( cStruct.ucPointNr != 0 )
-        {
-          xTZ2PointSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB );
-        }
-      }
-    }
-  }
-  
-  // write out best match
-  rcMv.set( cStruct.iBestX, cStruct.iBestY );
-  ruiSAD = cStruct.uiBestSad - m_pcRdCost->getCost( cStruct.iBestX, cStruct.iBestY );
-  
-  //Sync GPU 
-  cudaDeviceSynchronize();
-  GPU::Kernel::gpuGpuFullBlockSearch1(m_pcHostGPU); //Get SAD
-
-   
-
   return;
 }
 
@@ -5033,7 +4674,7 @@ Void TEncSearch::xPatternSearchFracDIF(
   rcMvQter = *pcMvInt; rcMvQter <<=1;
   rcMvQter += rcMvHalf; rcMvQter <<=1;
 
-  //GPU::InterpolationKernel::gpuGpuHalfSampleME(m_pcHostGPU,m_pcDevGPU, iRefStride, pcMvInt->getHor(), pcMvInt->getVer());
+  //GPU::InterpolationKernel::gpuGpuHalfSampleME(m_pcHostGPU, iRefStride, pcMvInt->getHor(), pcMvInt->getVer());
 
   //  Half-pel refinement
   //nvtxRangePushA("Half-Pel Interpolation");
