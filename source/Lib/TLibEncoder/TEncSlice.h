@@ -244,7 +244,7 @@ public:
   TEncSlice();
   virtual ~TEncSlice();
    
-  void encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id);
+  void encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id, Int ThreadId);
   void threadTask(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int threadid);
     
   Void    create              ( Int iWidth, Int iHeight, ChromaFormat chromaFormat, UInt iMaxCUWidth, UInt iMaxCUHeight, UChar uhTotalDepth );

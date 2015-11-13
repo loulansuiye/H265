@@ -976,7 +976,7 @@ void TEncSlice::threadTask(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSl
             m_threadpool.ctuIndex++;
             //Process
             lock.unlock();
-            encodeCTUWPP(pcPic, m_cWppScheduler.getWppIndex(currentIndex), pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr,    pRDSbacCoder, tempBitCounter, m_cWppScheduler.getWppIndex(currentIndex)/m_cWppScheduler.getCtuInRow());
+            encodeCTUWPP(pcPic, m_cWppScheduler.getWppIndex(currentIndex), pcSlice, frameWidthInCtus, startCtuTsAddr, boundingCtuTsAddr,    pRDSbacCoder, tempBitCounter, m_cWppScheduler.getWppIndex(currentIndex)/m_cWppScheduler.getCtuInRow(), threadid);
             m_cWppScheduler.m_ctuStatus[m_cWppScheduler.getWppIndex(currentIndex)] = 1;
             
             //Signal
@@ -987,7 +987,7 @@ void TEncSlice::threadTask(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSl
     }
 }
 
-void TEncSlice::encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id)
+void TEncSlice::encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pcSlice, const UInt frameWidthInCtus, UInt startCtuTsAddr,  UInt boundingCtuTsAddr, TEncBinCABAC* pRDSbacCoder, TComBitCounter* tempBitCounter, Int ctu_row_id, Int ThreadId)
 {
     
     m_threadpool.cs.lock();
@@ -1038,7 +1038,9 @@ void TEncSlice::encodeCTUWPP(TComPic* pcPic, UInt ctuTsAddr, TComSlice* const pc
     // run CTU trial encoder
     // Parallize this function
     m_threadpool.cs.unlock();
-    
+
+    m_pcCuEncoderWPP[ctu_row_id].GetSearch()->GetGpuMeDataAccess()->SetGpuId(ThreadId);
+    m_pcCuEncoderWPP[ctu_row_id].GetSearch()->GetGpuMeDataAccess()->UpdateWorkingThread(m_pcCuEncoder->GetSearch()->GetGpuMeDataAccess());    
     m_pcCuEncoderWPP[ctu_row_id].compressCtu(pCtu);
 
     // m_pcCuEncoder->compressCtu(pCtu);

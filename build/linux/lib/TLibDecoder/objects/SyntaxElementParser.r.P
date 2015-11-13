@@ -1,0 +1,15 @@
+objects/SyntaxElementParser.r.o: \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibDecoder/SyntaxElementParser.cpp \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/CommonDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TypeDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TComRom.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/CommonDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TComBitStream.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibDecoder/SyntaxElementParser.h
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibDecoder/SyntaxElementParser.cpp :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/CommonDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TypeDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TComRom.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/CommonDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibCommon/TComBitStream.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoder/../../../../source/Lib/TLibDecoder/SyntaxElementParser.h :

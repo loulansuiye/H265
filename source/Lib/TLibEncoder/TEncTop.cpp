@@ -192,7 +192,6 @@ Void TEncTop::destroy ()
   m_cEncSAO.            destroy();
   m_cLoopFilter.        destroy();
   m_cRateCtrl.          destroy();
-  m_cSearch.            destroy(); //JCY
 
   Int iDepth;
   for ( iDepth = 0; iDepth < m_maxTotalCUDepth+1; iDepth++ )
@@ -256,7 +255,7 @@ Void TEncTop::init(Bool isFieldCoding)
                   );
 
   // initialize encoder search class
-  m_cSearch.init( this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder() );
+  m_cSearch.init( this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder(), true);
 
   //JCY: init cuEncoder array for WPP
   for(int i=0;i<WPP_NUM_ROWS;i++)
@@ -285,7 +284,7 @@ Void TEncTop::init(Bool isFieldCoding)
 //first cSearch allocated GPU memory.
   for(int i=0;i<WPP_NUM_ROWS;i++)
   {
-      m_cSearchWPP[i].initWPP(&m_cSearch, this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder() );
+      m_cSearchWPP[i].init(this, &m_cTrQuant, m_iSearchRange, m_bipredSearchRange, m_iFastSearch, m_maxCUWidth, m_maxCUHeight, m_maxTotalCUDepth, &m_cEntropyCoder, &m_cRdCost, getRDSbacCoder(), getRDGoOnSbacCoder(), false);
  
   }
   //~JCY

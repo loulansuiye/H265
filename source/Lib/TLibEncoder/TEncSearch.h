@@ -92,10 +92,10 @@ private:
 
 public:
     //JCY
-  GpuSearch*       m_pGpuSearch;
-  GpuMeDataAccess* m_pcDevGPU;
+  //GpuSearch*       m_pGpuSearch;
+  //GpuMeDataAccess* m_pcDevGPU;
   GpuMeDataAccess* m_pcHostGPU;
-  CpuMeDataAccess* m_pcCPU;
+  //CpuMeDataAccess* m_pcCPU;
   //~JCY
 protected:
 
@@ -147,23 +147,10 @@ public:
             TEncEntropy*  pcEntropyCoder,
             TComRdCost*   pcRdCost,
             TEncSbac***   pppcRDSbacCoder,
-            TEncSbac*     pcRDGoOnSbacCoder );
-
-  Void initWPP(TEncSearch* pcSearch,
-            TEncCfg*      pcEncCfg,
-            TComTrQuant*  pcTrQuant,
-            Int           iSearchRange,
-            Int           bipredSearchRange,
-            Int           iFastSearch,
-            const UInt    maxCUWidth,
-            const UInt    maxCUHeight,
-            const UInt    maxTotalCUDepth,
-            TEncEntropy*  pcEntropyCoder,
-            TComRdCost*   pcRdCost,
-            TEncSbac***   pppcRDSbacCoder,
-            TEncSbac*     pcRDGoOnSbacCoder );
-
-Void destroy(); //JCY
+            TEncSbac*     pcRDGoOnSbacCoder, 
+             bool         bIsMainThread);
+  
+  GpuMeDataAccess* GetGpuMeDataAccess() const {return m_pcHostGPU;}
 protected:
 
   /// sub-function for motion vector refinement used in fractional-pel accuracy
@@ -465,19 +452,6 @@ protected:
                                     TComMv&      rcMv,
                                     Distortion&  ruiSAD
                                   );
-
-  //JCY #3
-  Void xHeteroSearch              ( TComDataCU*  pcCU,
-                                    TComPattern* pcPatternKey,
-                                    Pel*         piRefY,
-                                    Int          iRefStride,
-                                    TComMv*      pcMvSrchRngLT,
-                                    TComMv*      pcMvSrchRngRB,
-                                    TComMv&      rcMv,
-                                    Distortion&  ruiSAD,
-                                    const TComMv* pIntegerMv2Nx2NPred
-                                  );
-
 
   Void xPatternSearchFracDIF      (
                                     Bool         bIsLosslessCoded,

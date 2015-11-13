@@ -10,10 +10,12 @@ namespace CPU
 
 }
 
-namespace GPU
-{
-	namespace MemOpt
-	{
+namespace GPU {
+	namespace MemOpt {
+
+		Int 
+		ChangeDevice(Int iDevice);
+
 		template<class T>
 		void
 		AllocDeviceMem(T& src, size_t len);
@@ -39,28 +41,15 @@ namespace GPU
 		FreeHostMem(T *src);
 	}
 
-	namespace InterpolationKernel
-	{
+	namespace InterpolationKernel {
 		void 
-		gpuGpuHalfSampleME(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride, Int iMvX, Int iMvY);
+		gpuGpuHalfSampleME(GpuMeDataAccess* pHostGMDA, Int iStride, Int iMvX, Int iMvY);
 
 	}
-	namespace Kernel
-	{
-		void 
-		gpuGpuFullBlockSearch(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride);
-		
-		void 
-		gpuGpuFullBlockSearch0(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride);
-		
-		void 
-		gpuGpuFullBlockSearch1(GpuMeDataAccess* pHostGMDA);
 
+	namespace Kernel {
 		void 
-		launch();
-
-		void 
-		launch2();
+		gpuGpuFullBlockSearch(GpuMeDataAccess* pHostGMDA);
 	}
 }
 

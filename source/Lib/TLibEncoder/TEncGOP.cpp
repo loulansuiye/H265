@@ -1434,39 +1434,33 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
       pcSlice->setSliceCurStartCtuTsAddr( 0 );
       pcSlice->setSliceSegmentCurStartCtuTsAddr( 0 );
 
-      //JCY: 1. copy current frame
-      Pel* pTmp;
-      pTmp = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Y);  
-      GPU::MemOpt::TransferToDevice<Pel*>( pTmp, pcSearch->m_pcHostGPU->m_cYList[0], pcSearch->m_pcHostGPU->getLPadSize()*sizeof(Pel));
+      //!< Copy current frame
+      Pel* pTmp[3];
 
-      pTmp = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cb);  
-      GPU::MemOpt::TransferToDevice<Pel*>( pTmp, pcSearch->m_pcHostGPU->m_cUList[0], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
+      pTmp[0] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Y);
+      pTmp[1] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cb);  
+      pTmp[2] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cr);  
+      pcSearch->m_pcHostGPU->CopyCurFrameToGpu(pTmp);
 
-      pTmp = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cr);  
-      GPU::MemOpt::TransferToDevice<Pel*>( pTmp, pcSearch->m_pcHostGPU->m_cVList[0], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
-
-      //JCY: 2. copy reference frame (slice(0) also has RefPOCList info)
+      //!< copy reference frame (slice(0) also has RefPOCList info)
       //This is not the best implementation because same reference maybe transferred
       //multiple times but this should be fine since processing time should be
       //much larger than transfer time.
       for(int idx=0; idx < pcPic->getSlice(0)->getNumRefIdx(REF_PIC_LIST_0);idx++)
       {
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp, pcSearch->m_pcHostGPU->m_cYRefList0[idx], pcSearch->m_pcHostGPU->getLPadSize()*sizeof(Pel));
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp,pcSearch->m_pcHostGPU->m_cURefList0[idx], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp,pcSearch->m_pcHostGPU->m_cVRefList0[idx], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
+        pTmp[0] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
+        pTmp[1] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
+        pTmp[2] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
+        pcSearch->m_pcHostGPU->CopyRefFrameToGpuByIndex(pTmp, idx, 0);
       }
+      
 
       for(int idx=0; idx < pcPic->getSlice(0)->getNumRefIdx(REF_PIC_LIST_1);idx++)
       {
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp, pcSearch->m_pcHostGPU->m_cYRefList1[idx], pcSearch->m_pcHostGPU->getLPadSize()*sizeof(Pel));
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp,pcSearch->m_pcHostGPU->m_cURefList1[idx], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
-        pTmp = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
-        GPU::MemOpt::TransferToDevice<Pel*>(pTmp,pcSearch->m_pcHostGPU->m_cVRefList1[idx], pcSearch->m_pcHostGPU->getCPadSize()*sizeof(Pel));
+        pTmp[0] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
+        pTmp[1] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
+        pTmp[2] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
+        pcSearch->m_pcHostGPU->CopyRefFrameToGpuByIndex(pTmp, idx, 1);
       }
 
 

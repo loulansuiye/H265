@@ -299,7 +299,8 @@ enum NalUnitType
 //! \}
 
 //JCY
-#define WPP_THREAD_NUM 1
+#define WPP_THREAD_NUM 4
 #define WPP_NUM_ROWS 25 //For height <= 1600
+#define NUM_GPU 1
 #endif // end of #ifndef  __COMMONDEF__
 

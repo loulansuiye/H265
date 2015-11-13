@@ -1,0 +1,15 @@
+objects/NALwrite.d.o: \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibEncoder/NALwrite.cpp \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/NAL.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/CommonDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TypeDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TComBitStream.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibEncoder/NALwrite.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TypeDef.h
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibEncoder/NALwrite.cpp :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/NAL.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/CommonDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TypeDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TComBitStream.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibEncoder/NALwrite.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibEncoder/../../../../source/Lib/TLibCommon/TypeDef.h :

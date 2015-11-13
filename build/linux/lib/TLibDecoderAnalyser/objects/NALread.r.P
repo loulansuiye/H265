@@ -1,0 +1,29 @@
+objects/NALread.r.o: \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibDecoder/NALread.cpp \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibDecoder/NALread.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TypeDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComBitStream.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/CommonDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TypeDef.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/NAL.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComCodingStatistics.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComChromaFormat.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComRectangle.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/ContextTables.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComRom.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/Debug.h \
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/CommonDef.h
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibDecoder/NALread.cpp :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibDecoder/NALread.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TypeDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComBitStream.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/CommonDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TypeDef.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/NAL.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComCodingStatistics.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComChromaFormat.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComRectangle.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/ContextTables.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/TComRom.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/Debug.h :
+ /home/caoyang/Desktop/H265/build/linux/lib/TLibDecoderAnalyser/../../../../source/Lib/TLibCommon/CommonDef.h :

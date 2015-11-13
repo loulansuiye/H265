@@ -1,7 +1,6 @@
 #include "TEncGPUSearch.h"
 #include "TEncMEs.h"
 #include <pthread.h>
-#include <limits>
 #include <math.h>
 #include <thrust/count.h>
 #include <thrust/device_vector.h>
@@ -71,6 +70,19 @@ namespace GPU
 {
 	namespace MemOpt
 	{
+
+		Int 
+		ChangeDevice(Int iDevice) {
+			Int deviceCount = 1;
+			Int setDevice;
+			cudaError_t status;
+
+			setDevice = iDevice % deviceCount;
+    		CUDART_CHECK( cudaGetDeviceCount(&deviceCount) );
+			CUDART_CHECK( cudaSetDevice(setDevice) );
+			return setDevice;
+		}
+
 		template<class T>
 		void
 		AllocDeviceMem(T& src, size_t len)
@@ -271,7 +283,7 @@ namespace GPU
 
 		}
 
-		void gpuGpuHalfSampleME(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride, Int iMvX, Int iMvY)
+		void gpuGpuHalfSampleME(GpuMeDataAccess* pHostGMDA, Int iStride, Int iMvX, Int iMvY)
 		{
 			
 			cudaError_t status;
@@ -336,8 +348,8 @@ namespace GPU
 		__global__ void gpuGpuFullBlockSearchKernel(Int iPUWidth, 
 													Int iPUHeight,
 													Int iSRWidth,
-													Pel* m_pYRefPU,
-													Pel* m_pYOrgPU,
+													const Pel* m_pYRefPU,
+													const Pel* m_pYOrgPU,
 													Int m_ilx,
 													Int m_ity,
 													UInt m_uiCost,
@@ -352,8 +364,8 @@ namespace GPU
 			extern  __shared__  Pel sPU[];
 			extern  __shared__  volatile UInt uiPU[]; //Alias
 
-			Pel* pYSR; 
-			Pel* pYOrg;
+			const Pel* pYSR; 
+			const Pel* pYOrg;
 	 		uint32_t uiSad=0;
 	 		int x, y, z, w;//, k;
 	  
@@ -612,165 +624,40 @@ namespace GPU
 
 		}
 
-		// 1) This function is called in TEncSearch.cpp:4009. It is a wrapper for the
-		// GPU search kernel. pHostGMDA->m_ilx, m_irx, m_ity, and m_iby are the left,
-		// right, top and bottom coordinates of the search window. This is used to 
-		// calculate threads and threadblock required in the search. 
+		/**
+		 * pHostGMDA->m_ilx, m_irx, m_ity, and m_iby are 
+		 * left,right, top and bottom coordinates of the 
+		 * search window. This is used to calculate threads 
+		 * and threadblock required in the search. 
 
-		// 2) Shared memory is used for storing PU and SADs at different stages inside kernel. 
-		// Thus, it's size must be allocated to whichever is the largest. 
-
-		// 3) WLINC is for increasing threads within block for small search sizes (<+/-64). 
-		// +/-64 is just enough to saturate GPU.
-
-		// 4) After kernel follows, the minimization of row-wise minimals to a single global minimal.
-		// Cost and its location index are encoded together in a UInt type, where cost occupies bit 0-23
-		// and index occupies bit 24-31.   
-
-		void gpuGpuFullBlockSearch(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride)
+		 * WLINC is for increasing threads within block 
+		 * for small search sizes (<+/-64). +/-64 is 
+		 * just enough to saturate GPU.  
+		*/
+		void gpuGpuFullBlockSearch(GpuMeDataAccess* pHostGMDA)
 		{
 			
 			cudaError_t status;
-			//int iNumBlocks  = 2*pHostGMDA->m_iSearchRange - (pHostGMDA->m_iTConstrain + pHostGMDA->m_iBConstrain);
-			//int iNumThreads = 2*pHostGMDA->m_iSearchRange - (pHostGMDA->m_iLConstrain + pHostGMDA->m_iRConstrain);
-			
-			int iNumThreads = -pHostGMDA->m_ilx + pHostGMDA->m_irx;
-			int iNumBlocks  = -pHostGMDA->m_ity + pHostGMDA->m_iby;
-			uint uiSharedMemorySize=0;
-			uint uiSharedMemorySegment1Size=0;
-			
-			// Segment1 is for storing PU/SADs
-			if(pHostGMDA->m_iPUWidth < 64 && pHostGMDA->m_iPUHeight < 64)
-				uiSharedMemorySegment1Size = pHostGMDA->m_iPUWidth * pHostGMDA->m_iPUHeight * sizeof(Pel); 
-
- 			if(uiSharedMemorySegment1Size < 2 * pHostGMDA->m_iSearchRange * sizeof(UInt))
- 				uiSharedMemorySegment1Size = 2 * pHostGMDA->m_iSearchRange * sizeof(UInt); //For SAD
- 			
- 			// Segment2 is for storing a row of search region pixel
- 			// T&E: 1) Reserve 2*SearchRange*sizeof(Pel) in the shared memory.
- 			//         It does after already allocated shared memory. 
- 			//      2) Offset is uiSharedMemorySegment1Size/sizeof(Pel) because 
- 			//         This is the number of pel to be skipped. Remember ptr+N
- 			//         depends on type size.
- 			uiSharedMemorySize = uiSharedMemorySegment1Size;// + (2*pHostGMDA->m_iSearchRange + pHostGMDA->m_iPUWidth - 1) * sizeof(Pel);
- 			
-			dim3 BlkInGridConfig(iNumBlocks,1);
-			dim3 ThdInBlkConfig(iNumThreads * WLINC,1); 
-			gpuGpuFullBlockSearchKernel<<<BlkInGridConfig,ThdInBlkConfig, uiSharedMemorySize>>>(pHostGMDA->m_iPUWidth, 
-																								pHostGMDA->m_iPUHeight,
-																								pHostGMDA->m_iSearchRange * 2,
-																								pHostGMDA->m_pYRefPU,
-																								pHostGMDA->m_pYOrgPU,
-																								pHostGMDA->m_ilx,
-																								pHostGMDA->m_ity,
-																								pHostGMDA->m_uiCost,
-																								pHostGMDA->m_iCostScale,
-																								pHostGMDA->m_iMvPredx,
-																								pHostGMDA->m_iMvPredy,
-																								pHostGMDA->m_puiSadArray,
-																								iStride);
+			dim3 BlkInGridConfig(pHostGMDA->GetNumBlocks(),1);
+			dim3 ThdInBlkConfig(pHostGMDA->GetNumThreads() * WLINC,1); 
+			gpuGpuFullBlockSearchKernel<<<BlkInGridConfig,ThdInBlkConfig, pHostGMDA->GetSharedMemSize()>>>(pHostGMDA->GetPUWidth(), 
+																											pHostGMDA->GetPUHeight(),
+																											pHostGMDA->GetSearchRange() * 2,
+																											pHostGMDA->GetYRefPU(),
+																											pHostGMDA->GetYOrgPU(),
+																											pHostGMDA->GetLx(),
+																											pHostGMDA->GetTy(),
+																											pHostGMDA->GetCost(),
+																											pHostGMDA->GetCostScale(),
+																											pHostGMDA->GetMvPredX(),
+																											pHostGMDA->GetMvPredY(),
+																											pHostGMDA->GetSadArray(),
+																											pHostGMDA->GetLStride());
 																								//uiSharedMemorySegment1Size/sizeof(Pel));
 			CUDART_CHECK( cudaDeviceSynchronize() );
  			
- 			UInt uiMinSAD=std::numeric_limits<uint32_t>::max();
- 			UInt *puiRowMinSAD = pHostGMDA->m_puiSadArrayCPU;
-
- 			//This transfer took 8 seconds in 9 frame
- 			GPU::MemOpt::TransferToHost<UInt*>(pHostGMDA->m_puiSadArray,puiRowMinSAD,sizeof(UInt)*iNumBlocks);		
- 			
- 			
-  			for(int i=0;i<iNumBlocks;i++)
- 			{
- 				if((puiRowMinSAD[i] & 0x00FFFFFF) < (uiMinSAD & 0x00FFFFFF))
- 				{
- 					uiMinSAD = puiRowMinSAD[i];
-
- 					pHostGMDA->m_uiSad = uiMinSAD & 0x00FFFFFF;
- 					pHostGMDA->m_iMvX  = ((uiMinSAD & 0xFF000000)>>24) + pHostGMDA->m_ilx + pHostGMDA->m_iLConstrain ;
-					pHostGMDA->m_iMvY  = i + pHostGMDA->m_ity + pHostGMDA->m_iTConstrain ;
- 				}
- 			}
-
- 			
 		}
 		
-		// gpuGpuFullBlockSearch0 is invalid and has no effect for now
-		void gpuGpuFullBlockSearch0(GpuMeDataAccess* pHostGMDA, GpuMeDataAccess* pDevGMDA, Int iStride)
-		{
-			
-			//cudaError_t status;
-			//int iNumBlocks  = 2*pHostGMDA->m_iSearchRange - (pHostGMDA->m_iTConstrain + pHostGMDA->m_iBConstrain);
-			//int iNumThreads = 2*pHostGMDA->m_iSearchRange - (pHostGMDA->m_iLConstrain + pHostGMDA->m_iRConstrain);
-			
-			int iNumThreads = -pHostGMDA->m_ilx + pHostGMDA->m_irx;
-			int iNumBlocks  = -pHostGMDA->m_ity + pHostGMDA->m_iby;
-			uint uiSharedMemorySize=0;
-
-			if(pHostGMDA->m_iPUWidth < 64 && pHostGMDA->m_iPUHeight < 64)
-				uiSharedMemorySize = pHostGMDA->m_iPUWidth * pHostGMDA->m_iPUHeight * sizeof(Pel); 
- 			
- 			if(uiSharedMemorySize < 2 * pHostGMDA->m_iSearchRange * sizeof(UInt))
- 				uiSharedMemorySize = 2 * pHostGMDA->m_iSearchRange * sizeof(UInt); //For SAD
- 			
-			dim3 BlkInGridConfig(iNumBlocks,1);
-			dim3 ThdInBlkConfig(iNumThreads * WLINC,1); 
-			gpuGpuFullBlockSearchKernel<<<BlkInGridConfig,ThdInBlkConfig, uiSharedMemorySize>>>(pHostGMDA->m_iPUWidth, 
-																								pHostGMDA->m_iPUHeight,
-																								pHostGMDA->m_iSearchRange * 2,
-																								pHostGMDA->m_pYRefPU,
-																								pHostGMDA->m_pYOrgPU,
-																								pHostGMDA->m_ilx,
-																								pHostGMDA->m_ity,
-																								pHostGMDA->m_uiCost,
-																								pHostGMDA->m_iCostScale,
-																								pHostGMDA->m_iMvPredx,
-																								pHostGMDA->m_iMvPredy,
-																								pHostGMDA->m_puiSadArray,
-																								iStride);
-																							
-		}
-		// gpuGpuFullBlockSearch1 is invalid and has no effect for now
-		void gpuGpuFullBlockSearch1(GpuMeDataAccess* pHostGMDA)
-		{
-			//CUDART_CHECK( cudaDeviceSynchronize() );
- 			//int iNumThreads = -pHostGMDA->m_ilx + pHostGMDA->m_irx;
-			int iNumBlocks  = -pHostGMDA->m_ity + pHostGMDA->m_iby;
-
- 			UInt uiMinSAD=std::numeric_limits<uint32_t>::max();
- 			UInt *puiRowMinSAD = pHostGMDA->m_puiSadArrayCPU;
-
- 			//This transfer took 8 seconds in 9 frame
- 			GPU::MemOpt::TransferToHost<UInt*>(pHostGMDA->m_puiSadArray,puiRowMinSAD,sizeof(UInt)*iNumBlocks);		
- 			
- 			
-  			for(int i=0;i<iNumBlocks;i++)
- 			{
- 				if((puiRowMinSAD[i] & 0x00FFFFFF) < (uiMinSAD & 0x00FFFFFF))
- 				{
- 					uiMinSAD = puiRowMinSAD[i];
-
- 					pHostGMDA->m_uiSad = uiMinSAD & 0x00FFFFFF;
- 					pHostGMDA->m_iMvX  = ((uiMinSAD & 0xFF000000)>>24) + pHostGMDA->m_ilx + pHostGMDA->m_iLConstrain ;
-					pHostGMDA->m_iMvY  = i + pHostGMDA->m_ity + pHostGMDA->m_iTConstrain ;
- 				}
- 			}
-
- 			
-		}
-
-
-		void* dummyCPUKernel(void* pData)
-		{
-			for(int i=0;i<100;i++);
-			return NULL;
-		}
-
-		void launch2()
-		{
-			pthread_t th;
-			pthread_create(&th,NULL,dummyCPUKernel,NULL);
-			pthread_join(th,NULL);
-		}
 	}
 
 }
