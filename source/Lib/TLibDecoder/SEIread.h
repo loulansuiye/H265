@@ -79,6 +79,10 @@ protected:
   Void xParseSEIChromaSamplingFilterHint      (SEIChromaSamplingFilterHint& sei,      UInt payloadSize/*,TComSPS* */,       std::ostream *pDecodedMessageOutputStream);
   Void xParseSEIKneeFunctionInfo              (SEIKneeFunctionInfo& sei,              UInt payloadSize,                     std::ostream *pDecodedMessageOutputStream);
   Void xParseSEIMasteringDisplayColourVolume  (SEIMasteringDisplayColourVolume& sei,  UInt payloadSize,                     std::ostream *pDecodedMessageOutputStream);
+#if NH_MV
+  Void  xParseSEISubBitstreamProperty         (SEISubBitstreamProperty &sei        ,  UInt payloadSize,                     std::ostream *pDecodedMessageOutputStream);
+  Void  xResizeSubBitstreamPropertySeiArrays  (SEISubBitstreamProperty &sei);
+#endif
 
   Void sei_read_code(std::ostream *pOS, UInt uiLength, UInt& ruiCode, const Char *pSymbolName);
   Void sei_read_uvlc(std::ostream *pOS,                UInt& ruiCode, const Char *pSymbolName);

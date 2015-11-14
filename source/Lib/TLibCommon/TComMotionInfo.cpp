@@ -39,7 +39,9 @@
 #include "TComMotionInfo.h"
 #include "assert.h"
 #include <stdlib.h>
-
+#if NH_MV
+#include <iomanip>
+#endif
 //! \ingroup TLibCommon
 //! \{
 
@@ -323,6 +325,7 @@ Void TComCUMvField::setAllMvField( TComMvField const & mvField, PartSize eCUMode
   setAllRefIdx( mvField.getRefIdx(), eCUMode, iPartAddr, uiDepth, iPartIdx );
 }
 
+
 /**Subsampling of the stored prediction mode, reference index and motion vector
  * \param pePredMode Pointer to prediction modes
  * \param scale      Factor by which to subsample motion information
@@ -348,4 +351,31 @@ Void TComCUMvField::compress(Char* pePredMode, Int scale)
     }
   }
 }
+
+#if NH_MV
+Void TComCUMvField::print(Char* pePredMode)
+{
+  for ( Int uiPartIdx = 0; uiPartIdx < m_uiNumPartition; uiPartIdx += 1 )
+  {
+    PredMode predMode = static_cast<PredMode>( pePredMode[ uiPartIdx ] );
+
+    if ( predMode == MODE_INTRA)
+    {
+      std::cout << std::setfill(' ') << "(" 
+        << std::setw(3) <<  "   "    << ","
+        << std::setw(3) <<  "   "    << ","
+        << std::setw(3) <<  "   "    << ")";
+    }
+    else
+    {
+      ;
+      std::cout << std::setfill(' ') << "(" 
+        << std::setw(3) <<  (Int) m_piRefIdx[ uiPartIdx ]        << ","
+        << std::setw(3) <<  m_pcMv[ uiPartIdx ].getHor()   << ","
+        << std::setw(3) <<  m_pcMv[ uiPartIdx ].getVer()   << ")";
+    }    
+  }
+}
+
+#endif
 //! \}

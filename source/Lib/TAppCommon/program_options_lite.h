@@ -35,6 +35,18 @@
 #include <string>
 #include <list>
 #include <map>
+#include  "../TLibCommon/CommonDef.h" 
+
+#if NH_MV
+#include <vector>
+#include <errno.h>
+#include <cstring>
+
+#ifdef WIN32
+#define strdup _strdup
+#endif
+#endif
+
 
 #ifndef __PROGRAM_OPTIONS_LITE__
 #define __PROGRAM_OPTIONS_LITE__
@@ -84,8 +96,13 @@ namespace df
      * information should be stored in a derived class. */
     struct OptionBase
     {
+#if NH_MV      
+      OptionBase(const std::string& name, const std::string& desc, bool duplicate = false)
+        : opt_string(name), opt_desc(desc), opt_duplicate(duplicate)
+#else
       OptionBase(const std::string& name, const std::string& desc)
       : opt_string(name), opt_desc(desc)
+#endif
       {};
 
       virtual ~OptionBase() {}
@@ -97,14 +114,22 @@ namespace df
 
       std::string opt_string;
       std::string opt_desc;
+#if NH_MV
+      bool        opt_duplicate; 
+#endif
     };
 
     /** Type specific option storage */
     template<typename T>
     struct Option : public OptionBase
     {
+#if NH_MV
+      Option(const std::string& name, T& storage, T default_val, const std::string& desc, bool duplicate = false)
+        : OptionBase(name, desc, duplicate), opt_storage(storage), opt_default_val(default_val)
+#else
       Option(const std::string& name, T& storage, T default_val, const std::string& desc)
       : OptionBase(name, desc), opt_storage(storage), opt_default_val(default_val)
+#endif
       {}
 
       void parse(const std::string& arg, ErrorReporter&);
@@ -144,6 +169,143 @@ namespace df
       opt_storage = arg;
     }
 
+#if NH_MV    
+    template<>
+    inline void
+      Option<char*>::parse(const std::string& arg, ErrorReporter&)
+    {
+      opt_storage = arg.empty() ? NULL : strdup(arg.c_str()) ;
+    }
+
+    template<>
+    inline void
+      Option< std::vector<char*> >::parse(const std::string& arg, ErrorReporter&)
+    {
+      opt_storage.clear(); 
+
+      char* pcStart = (char*) arg.data();      
+      char* pcEnd = strtok (pcStart," ");
+
+      while (pcEnd != NULL)
+      {
+        size_t uiStringLength = pcEnd - pcStart;
+        char* pcNewStr = (char*) malloc( uiStringLength + 1 );
+        strncpy( pcNewStr, pcStart, uiStringLength); 
+        pcNewStr[uiStringLength] = '\0'; 
+        pcStart = pcEnd+1; 
+        pcEnd = strtok (NULL, " ,.-");
+        opt_storage.push_back( pcNewStr ); 
+      }      
+    }
+
+
+    template<>    
+    inline void
+      Option< std::vector<double> >::parse(const std::string& arg, ErrorReporter&)
+    {
+      char* pcNextStart = (char*) arg.data();
+      char* pcEnd = pcNextStart + arg.length();
+
+      char* pcOldStart = 0; 
+
+      size_t iIdx = 0; 
+
+      while (pcNextStart < pcEnd)
+      {
+        errno = 0; 
+
+        if ( iIdx < opt_storage.size() )
+        {
+          opt_storage[iIdx] = strtod(pcNextStart, &pcNextStart);
+        }
+        else
+        {
+          opt_storage.push_back( strtod(pcNextStart, &pcNextStart)) ;
+        }
+        iIdx++; 
+
+        if ( errno == ERANGE || (pcNextStart == pcOldStart) )
+        {
+          std::cerr << "Error Parsing Doubles: `" << arg << "'" << std::endl;
+          exit(EXIT_FAILURE);    
+        };   
+        while( (pcNextStart < pcEnd) && ( *pcNextStart == ' ' || *pcNextStart == '\t' || *pcNextStart == '\r' ) ) pcNextStart++;  
+        pcOldStart = pcNextStart; 
+
+      }
+    }
+
+    template<>
+    inline void
+      Option< std::vector<int> >::parse(const std::string& arg, ErrorReporter&)
+    {
+      opt_storage.clear();
+
+
+      char* pcNextStart = (char*) arg.data();
+      char* pcEnd = pcNextStart + arg.length();
+
+      char* pcOldStart = 0; 
+
+      size_t iIdx = 0; 
+
+
+      while (pcNextStart < pcEnd)
+      {
+
+        if ( iIdx < opt_storage.size() )
+        {
+          opt_storage[iIdx] = (int) strtol(pcNextStart, &pcNextStart,10);
+        }
+        else
+        {
+          opt_storage.push_back( (int) strtol(pcNextStart, &pcNextStart,10)) ;
+        }
+        iIdx++; 
+        if ( errno == ERANGE || (pcNextStart == pcOldStart) )
+        {
+          std::cerr << "Error Parsing Integers: `" << arg << "'" << std::endl;
+          exit(EXIT_FAILURE);
+        };   
+        while( (pcNextStart < pcEnd) && ( *pcNextStart == ' ' || *pcNextStart == '\t' || *pcNextStart == '\r' ) ) pcNextStart++;  
+        pcOldStart = pcNextStart;
+      }
+    }
+
+
+    template<>
+    inline void
+      Option< std::vector<bool> >::parse(const std::string& arg, ErrorReporter&)
+    {
+      char* pcNextStart = (char*) arg.data();
+      char* pcEnd = pcNextStart + arg.length();
+
+      char* pcOldStart = 0; 
+
+      size_t iIdx = 0; 
+
+      while (pcNextStart < pcEnd)
+      {
+        if ( iIdx < opt_storage.size() )
+        {
+          opt_storage[iIdx] = (strtol(pcNextStart, &pcNextStart,10) != 0);
+        }
+        else
+        {
+          opt_storage.push_back(strtol(pcNextStart, &pcNextStart,10) != 0) ;
+        }
+        iIdx++; 
+
+        if ( errno == ERANGE || (pcNextStart == pcOldStart) )
+        {
+          std::cerr << "Error Parsing Bools: `" << arg << "'" << std::endl;
+          exit(EXIT_FAILURE);
+        };   
+        while( (pcNextStart < pcEnd) && ( *pcNextStart == ' ' || *pcNextStart == '\t' || *pcNextStart == '\r' ) ) pcNextStart++;  
+        pcOldStart = pcNextStart;
+      }
+    }
+#endif
     /** Option class for argument handling using a user provided function */
     struct OptionFunc : public OptionBase
     {
@@ -220,6 +382,39 @@ namespace df
         return *this;
       }
 
+#if NH_MV
+      template<typename T>
+      OptionSpecific&
+        operator()(const std::string& name, std::vector<T>& storage, T default_val, unsigned uiMaxNum, const std::string& desc = "" )
+      {
+        std::string cNameBuffer;
+        std::string cDescBuffer;
+
+        storage.resize(uiMaxNum);
+        for ( unsigned int uiK = 0; uiK < uiMaxNum; uiK++ )
+        {
+          cNameBuffer       .resize( name.size() + 10 );
+          cDescBuffer.resize( desc.size() + 10 );
+
+          Bool duplicate = (uiK != 0); 
+          // isn't there are sprintf function for string??
+          sprintf((char*) cNameBuffer.c_str()       ,name.c_str(),uiK,uiK);
+
+          if ( !duplicate )
+          {          
+            sprintf((char*) cDescBuffer.c_str(),desc.c_str(),uiK,uiK);
+          }
+
+          cNameBuffer.resize( std::strlen(cNameBuffer.c_str()) );  
+          cDescBuffer.resize( std::strlen(cDescBuffer.c_str()) ); 
+          
+
+          parent.addOption(new Option<T>( cNameBuffer, (storage[uiK]), default_val, cDescBuffer, duplicate ));
+        }
+
+        return *this;
+      }
+#endif
       /**
        * Add option described by name to the parent Options list,
        *   with desc as an optional help description

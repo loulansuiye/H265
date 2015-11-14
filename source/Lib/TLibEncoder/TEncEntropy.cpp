@@ -36,7 +36,7 @@
 */
 
 #include "TEncEntropy.h"
-#include "TLibCommon/TypeDef.h"
+#include "TLibCommon/CommonDef.h"
 #include "TLibCommon/TComSampleAdaptiveOffset.h"
 #include "TLibCommon/TComTU.h"
 
@@ -115,7 +115,6 @@ Void TEncEntropy::encodeSkipFlag( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bRD 
   }
   m_pcEntropyCoderIf->codeSkipFlag( pcCU, uiAbsPartIdx );
 }
-
 //! encode merge flag
 Void TEncEntropy::encodeMergeFlag( TComDataCU* pcCU, UInt uiAbsPartIdx )
 {
@@ -133,6 +132,8 @@ Void TEncEntropy::encodeMergeIndex( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bR
   }
   m_pcEntropyCoderIf->codeMergeIndex( pcCU, uiAbsPartIdx );
 }
+
+
 
 
 //! encode prediction mode
@@ -199,13 +200,28 @@ Void TEncEntropy::encodeIPCMInfo( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bRD 
 
 Void TEncEntropy::xEncodeTransform( Bool& bCodeDQP, Bool& codeChromaQpAdj, TComTU &rTu )
 {
+
 //pcCU, absPartIdxCU, uiAbsPartIdx, uiDepth+1, uiTrIdx+1, quadrant,
   TComDataCU *pcCU=rTu.getCU();
   const UInt uiAbsPartIdx=rTu.GetAbsPartIdxTU();
+
   const UInt numValidComponent = pcCU->getPic()->getNumberValidComponents();
   const Bool bChroma = isChromaEnabled(pcCU->getPic()->getChromaFormat());
   const UInt uiTrIdx = rTu.GetTransformDepthRel();
   const UInt uiDepth = rTu.GetTransformDepthTotal();
+#if H_MV_ENC_DEC_TRAC
+#if ENC_DEC_TRACE
+  UInt uiLPelX   = pcCU->getCUPelX() + g_auiRasterToPelX[ g_auiZscanToRaster[uiAbsPartIdx] ];
+  UInt uiTPelY   = pcCU->getCUPelY() + g_auiRasterToPelY[ g_auiZscanToRaster[uiAbsPartIdx] ];
+
+  DTRACE_TU_S("=========== transform_tree ===========\n")
+    DTRACE_TU("x0", uiLPelX)
+    DTRACE_TU("x1", uiTPelY)
+    DTRACE_TU("log2TrafoSize", pcCU->getSlice()->getSPS()->getMaxCUWidth()  >> uiDepth )
+    DTRACE_TU("trafoDepth"  , uiDepth)
+#endif
+#endif
+
 #if ENVIRONMENT_VARIABLE_DEBUG_AND_TEST
   const Bool bDebugRQT=pcCU->getSlice()->getFinalized() && DebugOptionList::DebugRQT.getInt()!=0;
   if (bDebugRQT)
@@ -300,6 +316,7 @@ Void TEncEntropy::xEncodeTransform( Bool& bCodeDQP, Bool& codeChromaQpAdj, TComT
   }
   else
   {
+#if !H_MV_ENC_DEC_TRAC
     {
       DTRACE_CABAC_VL( g_nSymbolCounter++ );
       DTRACE_CABAC_T( "\tTrIdx: abspart=" );
@@ -310,7 +327,7 @@ Void TEncEntropy::xEncodeTransform( Bool& bCodeDQP, Bool& codeChromaQpAdj, TComT
       DTRACE_CABAC_V( pcCU->getTransformIdx( uiAbsPartIdx ) );
       DTRACE_CABAC_T( "\n" );
     }
-
+#endif
     if( !pcCU->isIntra(uiAbsPartIdx) && uiDepth == pcCU->getDepth( uiAbsPartIdx ) && (!bChroma || (!pcCU->getCbf( uiAbsPartIdx, COMPONENT_Cb, 0 ) && !pcCU->getCbf( uiAbsPartIdx, COMPONENT_Cr, 0 ) ) ) )
     {
       assert( pcCU->getCbf( uiAbsPartIdx, COMPONENT_Y, 0 ) );
@@ -429,6 +446,7 @@ Void TEncEntropy::encodePredInfo( TComDataCU* pcCU, UInt uiAbsPartIdx )
   if( pcCU->isIntra( uiAbsPartIdx ) )                                 // If it is Intra mode, encode intra prediction mode.
   {
     encodeIntraDirModeLuma  ( pcCU, uiAbsPartIdx,true );
+    
     if (pcCU->getPic()->getChromaFormat()!=CHROMA_400)
     {
       encodeIntraDirModeChroma( pcCU, uiAbsPartIdx );
@@ -467,6 +485,12 @@ Void TEncEntropy::encodePUWise( TComDataCU* pcCU, UInt uiAbsPartIdx )
 
   for ( UInt uiPartIdx = 0, uiSubPartIdx = uiAbsPartIdx; uiPartIdx < uiNumPU; uiPartIdx++, uiSubPartIdx += uiPUOffset )
   {
+#if H_MV_ENC_DEC_TRAC
+    DTRACE_PU_S("=========== prediction_unit ===========\n")
+       //Todo: 
+      //DTRACE_PU("x0", uiLPelX)
+      //DTRACE_PU("x1", uiTPelY)
+#endif
     encodeMergeFlag( pcCU, uiSubPartIdx );
     if ( pcCU->getMergeFlag( uiSubPartIdx ) )
     {
@@ -579,9 +603,9 @@ Void TEncEntropy::encodeQtCbfZero( TComTU &rTu, const ChannelType chType )
   m_pcEntropyCoderIf->codeQtCbfZero( rTu, chType );
 }
 
-Void TEncEntropy::encodeQtRootCbfZero( TComDataCU* pcCU )
+Void TEncEntropy::encodeQtRootCbfZero( )
 {
-  m_pcEntropyCoderIf->codeQtRootCbfZero( pcCU );
+  m_pcEntropyCoderIf->codeQtRootCbfZero( );
 }
 
 // dQP
@@ -614,12 +638,15 @@ Void TEncEntropy::encodeChromaQpAdjustment( TComDataCU* cu, UInt absPartIdx, Boo
 //! encode coefficients
 Void TEncEntropy::encodeCoeff( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, Bool& bCodeDQP, Bool& codeChromaQpAdj )
 {
+
 #if ENVIRONMENT_VARIABLE_DEBUG_AND_TEST
   const Bool bDebugRQT=pcCU->getSlice()->getFinalized() && DebugOptionList::DebugRQT.getInt()!=0;
 #endif
 
+
   if( pcCU->isIntra(uiAbsPartIdx) )
   {
+#if !NH_MV
     if (false)
     {
       DTRACE_CABAC_VL( g_nSymbolCounter++ )
@@ -627,6 +654,7 @@ Void TEncEntropy::encodeCoeff( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth
       DTRACE_CABAC_V( uiDepth )
       DTRACE_CABAC_T( "\n" )
     }
+#endif
   }
   else
   {
@@ -653,6 +681,11 @@ Void TEncEntropy::encodeCoeff( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth
 
 Void TEncEntropy::encodeCoeffNxN( TComTU &rTu, TCoeff* pcCoef, const ComponentID compID)
 {
+#if ENC_DEC_TRACE && H_MV_ENC_DEC_TRAC
+  Bool oldTraceFracBits = g_traceEncFracBits; 
+  g_traceEncFracBits = false; 
+#endif
+
   TComDataCU *pcCU = rTu.getCU();
 
   if (pcCU->getCbf(rTu.GetAbsPartIdxTU(), compID, rTu.GetTransformDepthRel()) != 0)
@@ -680,6 +713,9 @@ Void TEncEntropy::encodeCoeffNxN( TComTU &rTu, TCoeff* pcCoef, const ComponentID
       m_pcEntropyCoderIf->codeCoeffNxN(rTu, pcCoef, compID);
     }
   }
+#if ENC_DEC_TRACE && H_MV_ENC_DEC_TRAC
+  g_traceEncFracBits = oldTraceFracBits; 
+#endif
 }
 
 Void TEncEntropy::estimateBit (estBitsSbacStruct* pcEstBitsSbac, Int width, Int height, const ChannelType chType)
@@ -700,5 +736,6 @@ Int TEncEntropy::countNonZeroCoeffs( TCoeff* pcCoef, UInt uiSize )
 
   return count;
 }
+
 
 //! \}

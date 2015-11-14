@@ -34,7 +34,7 @@
 #ifndef __TCOMCODINGSTATISTICS__
 #define __TCOMCODINGSTATISTICS__
 
-#include "TypeDef.h"
+#include "CommonDef.h"
 #include <stdio.h>
 #include <string>
 #include <map>
@@ -91,6 +91,8 @@ enum TComCodingStatisticsType
   STATS__CABAC_EP_BIT_ALIGNMENT,
   STATS__CABAC_BITS__ALIGNED_SIGN_BIT,
   STATS__CABAC_BITS__ALIGNED_ESCAPE_BITS,
+
+
   STATS__NUM_STATS
 };
 
@@ -141,6 +143,7 @@ static inline const Char* getName(TComCodingStatisticsType name)
     "CABAC_EP_BIT_ALIGNMENT",
     "CABAC_BITS__ALIGNED_SIGN_BIT",
     "CABAC_BITS__ALIGNED_ESCAPE_BITS"
+
   };
   assert(STATS__NUM_STATS == sizeof(statNames)/sizeof(Char *) && name < STATS__NUM_STATS);
   return statNames[name];

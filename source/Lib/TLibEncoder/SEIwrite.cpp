@@ -109,7 +109,7 @@ Void SEIWriter::xWriteSEIpayloadData(TComBitIf& bs, const SEI& sei, const TComSP
     xWriteSEIChromaSamplingFilterHint(*static_cast<const SEIChromaSamplingFilterHint*>(&sei)/*, sps*/);
     break;
   case SEI::TEMP_MOTION_CONSTRAINED_TILE_SETS:
-    xWriteSEITempMotionConstrainedTileSets(bs, *static_cast<const SEITempMotionConstrainedTileSets*>(&sei));
+    xWriteSEITempMotionConstrainedTileSets(*static_cast<const SEITempMotionConstrainedTileSets*>(&sei));
     break;
   case SEI::TIME_CODE:
     xWriteSEITimeCode(*static_cast<const SEITimeCode*>(&sei));
@@ -120,6 +120,12 @@ Void SEIWriter::xWriteSEIpayloadData(TComBitIf& bs, const SEI& sei, const TComSP
   case SEI::MASTERING_DISPLAY_COLOUR_VOLUME:
     xWriteSEIMasteringDisplayColourVolume(*static_cast<const SEIMasteringDisplayColourVolume*>(&sei));
     break;
+#if NH_MV
+   case SEI::SUB_BITSTREAM_PROPERTY:
+   xWriteSEISubBitstreamProperty(*static_cast<const SEISubBitstreamProperty*>(&sei));
+   break;
+#endif
+
   default:
     assert(!"Unhandled SEI message");
     break;
@@ -130,7 +136,7 @@ Void SEIWriter::xWriteSEIpayloadData(TComBitIf& bs, const SEI& sei, const TComSP
 /**
  * marshal all SEI messages in provided list into one bitstream bs
  */
-Void SEIWriter::writeSEImessages(TComBitIf& bs, const SEIMessages &seiList, const TComSPS *sps)
+Void SEIWriter::writeSEImessages(TComBitIf& bs, const SEIMessages &seiList, const TComSPS *sps, Bool isNested)
 {
 #if ENC_DEC_TRACE
   if (g_HLSTraceEnable)
@@ -179,6 +185,10 @@ Void SEIWriter::writeSEImessages(TComBitIf& bs, const SEIMessages &seiList, cons
 #endif
 
     xWriteSEIpayloadData(bs, **sei, sps);
+  }
+  if (!isNested)
+  {
+    xWriteRbspTrailingBits();
   }
 }
 
@@ -245,7 +255,7 @@ Void SEIWriter::xWriteSEIDecodingUnitInfo(const SEIDecodingUnitInfo& sei, const 
   WRITE_UVLC(sei.m_decodingUnitIdx, "decoding_unit_idx");
   if(vui->getHrdParameters()->getSubPicCpbParamsInPicTimingSEIFlag())
   {
-    WRITE_CODE( sei.m_duSptCpbRemovalDelay, (vui->getHrdParameters()->getDuCpbRemovalDelayLengthMinus1() + 1), "du_spt_cpb_removal_delay");
+    WRITE_CODE( sei.m_duSptCpbRemovalDelay, (vui->getHrdParameters()->getDuCpbRemovalDelayLengthMinus1() + 1), "du_spt_cpb_removal_delay_increment");
   }
   WRITE_FLAG( sei.m_dpbOutputDuDelayPresentFlag, "dpb_output_du_delay_present_flag");
   if(sei.m_dpbOutputDuDelayPresentFlag)
@@ -478,7 +488,7 @@ Void SEIWriter::xWriteSEIGradualDecodingRefreshInfo(const SEIGradualDecodingRefr
   WRITE_FLAG( sei.m_gdrForegroundFlag, "gdr_foreground_flag");
 }
 
-Void SEIWriter::xWriteSEINoDisplay(const SEINoDisplay &sei)
+Void SEIWriter::xWriteSEINoDisplay(const SEINoDisplay& /*sei*/)
 {
 }
 
@@ -536,10 +546,10 @@ Void SEIWriter::xWriteSEIScalableNesting(TComBitIf& bs, const SEIScalableNesting
   }
 
   // write nested SEI messages
-  writeSEImessages(bs, sei.m_nestedSEIs, sps);
+  writeSEImessages(bs, sei.m_nestedSEIs, sps, true);
 }
 
-Void SEIWriter::xWriteSEITempMotionConstrainedTileSets(TComBitIf& bs, const SEITempMotionConstrainedTileSets& sei)
+Void SEIWriter::xWriteSEITempMotionConstrainedTileSets(const SEITempMotionConstrainedTileSets& sei)
 {
   //UInt code;
   WRITE_FLAG((sei.m_mc_all_tiles_exact_sample_value_match_flag ? 1 : 0), "mc_all_tiles_exact_sample_value_match_flag"); 
@@ -735,6 +745,25 @@ Void SEIWriter::writeUserDefinedCoefficients(const SEIChromaSamplingFilterHint &
     }
   }
 }
+
+#if NH_MV
+Void SEIWriter::xWriteSEISubBitstreamProperty(const SEISubBitstreamProperty &sei)
+{
+  WRITE_CODE( sei.m_activeVpsId, 4, "active_vps_id" );
+  assert( sei.m_numAdditionalSubStreams >= 1 );
+  WRITE_UVLC( sei.m_numAdditionalSubStreams - 1, "num_additional_sub_streams_minus1" );
+
+  for( Int i = 0; i < sei.m_numAdditionalSubStreams; i++ )
+  {
+    WRITE_CODE( sei.m_subBitstreamMode[i],       2, "sub_bitstream_mode[i]"           );
+    WRITE_UVLC( sei.m_outputLayerSetIdxToVps[i],    "output_layer_set_idx_to_vps[i]"  );
+    WRITE_CODE( sei.m_highestSublayerId[i],      3, "highest_sub_layer_id[i]"         );
+    WRITE_CODE( sei.m_avgBitRate[i],            16, "avg_bit_rate[i]"                 );
+    WRITE_CODE( sei.m_maxBitRate[i],            16, "max_bit_rate[i]"                 );
+  }
+  xWriteByteAlign();
+}
+#endif
 
 Void SEIWriter::xWriteSEIKneeFunctionInfo(const SEIKneeFunctionInfo &sei)
 {

@@ -37,14 +37,12 @@
 
 #ifndef __TDECENTROPY__
 #define __TDECENTROPY__
-
 #include "TLibCommon/CommonDef.h"
 #include "TLibCommon/TComBitStream.h"
 #include "TLibCommon/TComSlice.h"
 #include "TLibCommon/TComPic.h"
 #include "TLibCommon/TComSampleAdaptiveOffset.h"
 #include "TLibCommon/TComRectangle.h"
-
 class TDecSbac;
 class TDecCavlc;
 class ParameterSetManagerDecoder;
@@ -68,8 +66,12 @@ public:
   virtual Void  parseVPS                  ( TComVPS* pcVPS )     = 0;
   virtual Void  parseSPS                  ( TComSPS* pcSPS )     = 0;
   virtual Void  parsePPS                  ( TComPPS* pcPPS )     = 0;
-
-  virtual Void parseSliceHeader          ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager, const Int prevTid0POC)       = 0;
+#if NH_MV
+  virtual Void  parseFirstSliceSegmentInPicFlag( TComSlice* pcSlice ) = 0;
+  virtual Void  parseSliceHeader          ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager )       = 0;
+#else
+  virtual Void  parseSliceHeader          ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager, const Int prevTid0POC)       = 0;
+#endif
 
   virtual Void parseTerminatingBit       ( UInt& ruilsLast )                                     = 0;
   virtual Void parseRemainingBytes( Bool noTrailingBytesExpected ) = 0;
@@ -129,7 +131,6 @@ public:
   Void decodeRefFrmIdxPU  ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, UInt uiPartIdx, RefPicList eRefList );
   Void decodeMvdPU        ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, UInt uiPartIdx, RefPicList eRefList );
   Void decodeMVPIdxPU     ( TComDataCU* pcSubCU, UInt uiPartAddr, UInt uiDepth, UInt uiPartIdx, RefPicList eRefList );
-
   Void    setEntropyDecoder           ( TDecEntropyIf* p );
   Void    setBitstream                ( TComInputBitstream* p ) { m_pcEntropyDecoderIf->setBitstream(p);                    }
   Void    resetEntropy                ( TComSlice* p)           { m_pcEntropyDecoderIf->resetEntropy(p);                    }
@@ -137,8 +138,14 @@ public:
   Void    decodeVPS                   ( TComVPS* pcVPS ) { m_pcEntropyDecoderIf->parseVPS(pcVPS); }
   Void    decodeSPS                   ( TComSPS* pcSPS ) { m_pcEntropyDecoderIf->parseSPS(pcSPS); }
   Void    decodePPS                   ( TComPPS* pcPPS ) { m_pcEntropyDecoderIf->parsePPS(pcPPS); }
+#if NH_MV
+  Void    decodeFirstSliceSegmentInPicFlag ( TComSlice* pcSlice )  { m_pcEntropyDecoderIf->parseFirstSliceSegmentInPicFlag( pcSlice );         }
+#endif
+#if NH_MV
+  Void    decodeSliceHeader           ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager )  { m_pcEntropyDecoderIf->parseSliceHeader(pcSlice, parameterSetManager);         }
+#else
   Void    decodeSliceHeader           ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager, const Int prevTid0POC)  { m_pcEntropyDecoderIf->parseSliceHeader(pcSlice, parameterSetManager, prevTid0POC);         }
-
+#endif
   Void    decodeTerminatingBit        ( UInt& ruiIsLast )       { m_pcEntropyDecoderIf->parseTerminatingBit(ruiIsLast);     }
   Void    decodeRemainingBytes( Bool noTrailingBytesExpected ) { m_pcEntropyDecoderIf->parseRemainingBytes(noTrailingBytesExpected); }
 
@@ -152,6 +159,7 @@ public:
   Void decodeMergeIndex        ( TComDataCU* pcSubCU, UInt uiPartIdx, UInt uiPartAddr, UInt uiDepth );
   Void decodePredMode          ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
   Void decodePartSize          ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
+
 
   Void decodeIPCMInfo          ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
 

@@ -50,14 +50,13 @@
 
 #define NUM_SPLIT_FLAG_CTX            3       ///< number of context models for split flag
 #define NUM_SKIP_FLAG_CTX             3       ///< number of context models for skip flag
-
 #define NUM_MERGE_FLAG_EXT_CTX        1       ///< number of context models for merge flag of merge extended
 #define NUM_MERGE_IDX_EXT_CTX         1       ///< number of context models for merge index of merge extended
 
 #define NUM_PART_SIZE_CTX             4       ///< number of context models for partition size
 #define NUM_PRED_MODE_CTX             1       ///< number of context models for prediction mode
 
-#define NUM_ADI_CTX                   1       ///< number of context models for intra prediction
+#define NUM_INTRA_PREDICT_CTX         1       ///< number of context models for intra prediction
 
 #define NUM_CHROMA_PRED_CTX           2       ///< number of context models for intra prediction (chroma)
 #define NUM_INTER_DIR_CTX             5       ///< number of context models for inter prediction direction
@@ -158,10 +157,10 @@ static const UInt notFirstGroupNeighbourhoodContextOffset[MAX_NUM_CHANNEL_TYPE] 
 
 #define NUM_CU_TRANSQUANT_BYPASS_FLAG_CTX  1
 
+
 #define NUM_CROSS_COMPONENT_PREDICTION_CTX 10
 
 #define CNU                          154      ///< dummy initialization value for unused context models 'Context model Not Used'
-
 
 // ====================================================================================================================
 // Tables
@@ -192,7 +191,6 @@ INIT_SKIP_FLAG[NUMBER_OF_SLICE_TYPES][NUM_SKIP_FLAG_CTX] =
   { 197,  185,  201, },
   { CNU,  CNU,  CNU, },
 };
-
 static const UChar
 INIT_MERGE_FLAG_EXT[NUMBER_OF_SLICE_TYPES][NUM_MERGE_FLAG_EXT_CTX] =
 {
@@ -226,7 +224,7 @@ INIT_PRED_MODE[NUMBER_OF_SLICE_TYPES][NUM_PRED_MODE_CTX] =
 };
 
 static const UChar
-INIT_INTRA_PRED_MODE[NUMBER_OF_SLICE_TYPES][NUM_ADI_CTX] =
+INIT_INTRA_PRED_MODE[NUMBER_OF_SLICE_TYPES][NUM_INTRA_PREDICT_CTX] =
 {
   { 183, },
   { 154, },
@@ -498,5 +496,7 @@ INIT_CROSS_COMPONENT_PREDICTION[NUMBER_OF_SLICE_TYPES][NUM_CROSS_COMPONENT_PREDI
 };
 
 //! \}
+
+
 
 #endif

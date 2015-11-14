@@ -34,7 +34,6 @@
 /** \file     TEncSearch.h
     \brief    encoder search class (header)
 */
-
 #ifndef __TENCSEARCH__
 #define __TENCSEARCH__
 
@@ -49,7 +48,6 @@
 #include "TEncEntropy.h"
 #include "TEncSbac.h"
 #include "TEncCfg.h"
-#include "TEncMEs.h"
 
 //! \ingroup TLibEncoder
 //! \{
@@ -89,17 +87,7 @@ private:
   TCoeff*         m_ppcQTTempTUArlCoeff[MAX_NUM_COMPONENT];
 #endif
 
-
-public:
-    //JCY
-  //GpuSearch*       m_pGpuSearch;
-  //GpuMeDataAccess* m_pcDevGPU;
-  GpuMeDataAccess* m_pcHostGPU;
-  //CpuMeDataAccess* m_pcCPU;
-  //~JCY
 protected:
-
-  
   // interface to option
   TEncCfg*        m_pcEncCfg;
 
@@ -112,6 +100,9 @@ protected:
   Int             m_iSearchRange;
   Int             m_bipredSearchRange; // Search range for bi-prediction
   Int             m_iFastSearch;
+#if NH_MV
+  Bool            m_vertRestriction; 
+#endif 
   Int             m_aaiAdaptSR[MAX_NUM_REF_LIST_ADAPT_SR][MAX_IDX_ADAPT_SR];
   TComMv          m_cSrchRngLT;
   TComMv          m_cSrchRngRB;
@@ -132,11 +123,12 @@ protected:
 
   TComMv          m_integerMv2Nx2N[NUM_REF_PIC_LIST_01][MAX_NUM_REF];
 
+  Bool            m_isInitialized;
 public:
   TEncSearch();
   virtual ~TEncSearch();
 
-  Void init(  TEncCfg*      pcEncCfg,
+  Void init(TEncCfg*      pcEncCfg,
             TComTrQuant*  pcTrQuant,
             Int           iSearchRange,
             Int           bipredSearchRange,
@@ -148,6 +140,9 @@ public:
             TComRdCost*   pcRdCost,
             TEncSbac***   pppcRDSbacCoder,
             TEncSbac*     pcRDGoOnSbacCoder );
+
+  Void destroy();
+
 protected:
 
   /// sub-function for motion vector refinement used in fractional-pel accuracy
@@ -183,7 +178,8 @@ public:
                                   TComYuv*    pcResiYuv,
                                   TComYuv*    pcRecoYuv,
                                   Pel         resiLuma[NUMBER_OF_STORED_RESIDUAL_TYPES][MAX_CU_SIZE * MAX_CU_SIZE]
-                                  DEBUG_STRING_FN_DECLARE(sDebug));
+                                  DEBUG_STRING_FN_DECLARE(sDebug)
+                                );
 
   Void  estIntraPredChromaQT    ( TComDataCU* pcCU,
                                   TComYuv*    pcOrgYuv,
@@ -230,6 +226,7 @@ protected:
   Void  xEncSubdivCbfQT           ( TComTU      &rTu,
                                     Bool         bLuma,
                                     Bool         bChroma );
+
   Void  xEncCoeffQT               ( TComTU &rTu,
                                     ComponentID  component,
                                     Bool         bRealCoeff );
@@ -252,8 +249,8 @@ protected:
                                           TComYuv*      pcResiYuv,
                                           Pel           resiLuma[NUMBER_OF_STORED_RESIDUAL_TYPES][MAX_CU_SIZE * MAX_CU_SIZE],
                                     const Bool          checkCrossCPrediction,
-                                          Distortion&   ruiDist,
-                                    const ComponentID   compID,
+                                    Distortion&   ruiDist,
+const ComponentID   compID,
                                           TComTU        &rTu
                                     DEBUG_STRING_FN_DECLARE(sTest)
                                          ,Int           default0Save1Load2 = 0
@@ -269,7 +266,8 @@ protected:
 #endif
                                     Double&      dRDCost,
                                     TComTU      &rTu
-                                    DEBUG_STRING_FN_DECLARE(sDebug));
+                                    DEBUG_STRING_FN_DECLARE(sDebug)
+                                  );
 
   Void  xSetIntraResultLumaQT     ( TComYuv*     pcRecoYuv,
                                     TComTU &rTu);
@@ -305,6 +303,7 @@ protected:
   Void  xLoadIntraResultQT        ( const ComponentID compID, TComTU &rTu);
 
 
+
   // -------------------------------------------------------------------------------------------------------------------
   // Inter search (AMP)
   // -------------------------------------------------------------------------------------------------------------------
@@ -328,7 +327,6 @@ protected:
                                     Distortion& ruiCost );
 
   Distortion xGetTemplateCost    ( TComDataCU*  pcCU,
-                                    UInt        uiPartIdx,
                                     UInt        uiPartAddr,
                                     TComYuv*    pcOrgYuv,
                                     TComYuv*    pcTemplateCand,
@@ -425,30 +423,7 @@ protected:
                                     TComMv*      pcMvSrchRngLT,
                                     TComMv*      pcMvSrchRngRB,
                                     TComMv&      rcMv,
-                                    Distortion&  ruiSAD, 
-				                            bool bBi );
-  //JCY #1
-  Void xGpuFullBlockSearch        ( TComDataCU*  pcCU,
-                                    TComPattern* pcPatternKey,
-                                    Pel*         piRefY,
-                                    Int          iRefStride,
-                                    TComMv*      pcMvSrchRngLT,
-                                    TComMv*      pcMvSrchRngRB,
-                                    TComMv&      rcMv,
-                                    Distortion&  ruiSAD
-                                  );
-
-
-  //JCY #2
-  Void xBlockFastSearch           ( TComDataCU*  pcCU,
-                                    TComPattern* pcPatternKey,
-                                    Pel*         piRefY,
-                                    Int          iRefStride,
-                                    TComMv*      pcMvSrchRngLT,
-                                    TComMv*      pcMvSrchRngRB,
-                                    TComMv&      rcMv,
-                                    Distortion&  ruiSAD
-                                  );
+                                    Distortion&  ruiSAD );
 
   Void xPatternSearchFracDIF      (
                                     Bool         bIsLosslessCoded,
@@ -458,23 +433,21 @@ protected:
                                     TComMv*      pcMvInt,
                                     TComMv&      rcMvHalf,
                                     TComMv&      rcMvQter,
-                                    Distortion&  ruiCost,
-                                    Bool         biPred
+                                    Distortion&  ruiCost
                                    );
 
-  Void xExtDIFUpSamplingH( TComPattern* pcPattern, Bool biPred  );
-  Void xExtDIFUpSamplingQ( TComPattern* pcPatternKey, TComMv halfPelRef, Bool biPred );
+  Void xExtDIFUpSamplingH( TComPattern* pcPattern );
+  Void xExtDIFUpSamplingQ( TComPattern* pcPatternKey, TComMv halfPelRef );
 
   // -------------------------------------------------------------------------------------------------------------------
   // T & Q & Q-1 & T-1
   // -------------------------------------------------------------------------------------------------------------------
 
-
   Void xEncodeInterResidualQT( const ComponentID compID, TComTU &rTu );
-  Void xEstimateInterResidualQT( TComYuv* pcResi, Double &rdCost, UInt &ruiBits, Distortion &ruiDist, Distortion *puiZeroDist, TComTU &rTu DEBUG_STRING_FN_DECLARE(sDebug) );
+  Void xEstimateInterResidualQT( TComYuv* pcResi                                  , Double &rdCost, UInt &ruiBits, Distortion &ruiDist, Distortion *puiZeroDist, TComTU &rTu DEBUG_STRING_FN_DECLARE(sDebug) );
   Void xSetInterResidualQTData( TComYuv* pcResi, Bool bSpatial, TComTU &rTu  );
 
-  UInt  xModeBitsIntra ( TComDataCU* pcCU, UInt uiMode, UInt uiPartOffset, UInt uiDepth, UInt uiInitTrDepth, const ChannelType compID );
+  UInt  xModeBitsIntra ( TComDataCU* pcCU, UInt uiMode, UInt uiPartOffset, UInt uiDepth, const ChannelType compID );
   UInt  xUpdateCandList( UInt uiMode, Double uiCost, UInt uiFastCandNum, UInt * CandModeList, Double * CandCostList );
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -482,8 +455,6 @@ protected:
   // -------------------------------------------------------------------------------------------------------------------
 
   Void xAddSymbolBitsInter       ( TComDataCU*   pcCU,
-                                   UInt          uiQp,
-                                   UInt          uiTrMode,
                                    UInt&         ruiBits);
 
   Void  setWpScalingDistParam( TComDataCU* pcCU, Int iRefIdx, RefPicList eRefPicListCur );

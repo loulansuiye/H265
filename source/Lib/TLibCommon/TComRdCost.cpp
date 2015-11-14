@@ -37,6 +37,7 @@
 
 #include <math.h>
 #include <assert.h>
+#include <limits>
 #include "TComRom.h"
 #include "TComRdCost.h"
 
@@ -119,6 +120,9 @@ Double TComRdCost::calcRdCost( UInt uiBits, Distortion uiDistortion, Bool bFlag,
     }
   }
 
+#if NH_MV
+  D_PRINT_INDENT( g_traceRDCost,  "Dist: " + n2s(uiDistortion) + " Bits: " + n2s(uiBits) + " RD Cost: " + n2s(dRdCost)); 
+#endif
   return dRdCost;
 }
 
@@ -248,7 +252,6 @@ Void TComRdCost::init()
   m_afpDistortFunc[DF_SADS64 ] = TComRdCost::xGetSAD64;
   m_afpDistortFunc[DF_SADS16N] = TComRdCost::xGetSAD16N;
 
-#if AMP_SAD
   m_afpDistortFunc[DF_SAD12  ] = TComRdCost::xGetSAD12;
   m_afpDistortFunc[DF_SAD24  ] = TComRdCost::xGetSAD24;
   m_afpDistortFunc[DF_SAD48  ] = TComRdCost::xGetSAD48;
@@ -256,7 +259,7 @@ Void TComRdCost::init()
   m_afpDistortFunc[DF_SADS12 ] = TComRdCost::xGetSAD12;
   m_afpDistortFunc[DF_SADS24 ] = TComRdCost::xGetSAD24;
   m_afpDistortFunc[DF_SADS48 ] = TComRdCost::xGetSAD48;
-#endif
+
   m_afpDistortFunc[DF_HADS   ] = TComRdCost::xGetHADs;
   m_afpDistortFunc[DF_HADS4  ] = TComRdCost::xGetHADs;
   m_afpDistortFunc[DF_HADS8  ] = TComRdCost::xGetHADs;
@@ -264,6 +267,7 @@ Void TComRdCost::init()
   m_afpDistortFunc[DF_HADS32 ] = TComRdCost::xGetHADs;
   m_afpDistortFunc[DF_HADS64 ] = TComRdCost::xGetHADs;
   m_afpDistortFunc[DF_HADS16N] = TComRdCost::xGetHADs;
+
 
   m_costMode                   = COST_STANDARD_LOSSY;
 
@@ -273,14 +277,16 @@ Void TComRdCost::init()
   m_uiCost                     = 0;
 #endif
   m_iCostScale                 = 0;
+
+
 }
 
-UInt TComRdCost::xGetComponentBits( Int iVal )
+// Static member function
+UInt TComRdCost::xGetExpGolombNumberOfBits( Int iVal )
 {
+  assert(iVal != std::numeric_limits<Int>::min());
   UInt uiLength = 1;
-  UInt uiTemp   = ( iVal <= 0) ? (-iVal<<1)+1: (iVal<<1);
-
-  assert ( uiTemp );
+  UInt uiTemp   = ( iVal <= 0) ? (UInt(-iVal)<<1)+1: UInt(iVal<<1);
 
   while ( 1 != uiTemp )
   {
@@ -317,7 +323,6 @@ Void TComRdCost::setDistParam( TComPattern* pcPatternKey, Pel* piRefY, Int iRefS
   rcDistParam.iRows    = pcPatternKey->getROIYHeight();
   rcDistParam.DistFunc = m_afpDistortFunc[DF_SAD + g_aucConvertToBit[ rcDistParam.iCols ] + 1 ];
 
-#if AMP_SAD
   if (rcDistParam.iCols == 12)
   {
     rcDistParam.DistFunc = m_afpDistortFunc[DF_SAD12];
@@ -330,7 +335,6 @@ Void TComRdCost::setDistParam( TComPattern* pcPatternKey, Pel* piRefY, Int iRefS
   {
     rcDistParam.DistFunc = m_afpDistortFunc[DF_SAD48];
   }
-#endif
 
   // initialize
   rcDistParam.iSubShift  = 0;
@@ -357,7 +361,6 @@ Void TComRdCost::setDistParam( TComPattern* pcPatternKey, Pel* piRefY, Int iRefS
   if ( !bHADME )
   {
     rcDistParam.DistFunc = m_afpDistortFunc[DF_SADS + g_aucConvertToBit[ rcDistParam.iCols ] + 1 ];
-#if AMP_SAD
     if (rcDistParam.iCols == 12)
     {
       rcDistParam.DistFunc = m_afpDistortFunc[DF_SADS12];
@@ -370,7 +373,6 @@ Void TComRdCost::setDistParam( TComPattern* pcPatternKey, Pel* piRefY, Int iRefS
     {
       rcDistParam.DistFunc = m_afpDistortFunc[DF_SADS48];
     }
-#endif
   }
   else
   {
@@ -430,6 +432,8 @@ Distortion TComRdCost::calcHAD( Int bitDepth, Pel* pi0, Int iStride0, Pel* pi1, 
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(bitDepth-8) );
 }
 
+
+
 Distortion TComRdCost::getDistPart( Int bitDepth, Pel* piCur, Int iCurStride,  Pel* piOrg, Int iOrgStride, UInt uiBlkWidth, UInt uiBlkHeight, const ComponentID compID, DFunc eDFunc )
 {
   DistParam cDtParam;
@@ -444,6 +448,7 @@ Distortion TComRdCost::getDistPart( Int bitDepth, Pel* piCur, Int iCurStride,  P
   cDtParam.compIdx      = MAX_NUM_COMPONENT; // just for assert: to be sure it was set before use
   cDtParam.bitDepth     = bitDepth;
 
+
   if (isChroma(compID))
   {
     return ((Distortion) (m_distortionWeight[compID] * cDtParam.DistFunc( &cDtParam )));
@@ -453,6 +458,7 @@ Distortion TComRdCost::getDistPart( Int bitDepth, Pel* piCur, Int iCurStride,  P
     return cDtParam.DistFunc( &cDtParam );
   }
 }
+
 
 // ====================================================================================================================
 // Distortion functions
@@ -468,6 +474,7 @@ Distortion TComRdCost::xGetSAD( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -496,6 +503,8 @@ Distortion TComRdCost::xGetSAD4( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -527,6 +536,8 @@ Distortion TComRdCost::xGetSAD8( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg      = pcDtParam->pOrg;
   const Pel* piCur      = pcDtParam->pCur;
   Int  iRows      = pcDtParam->iRows;
@@ -562,6 +573,8 @@ Distortion TComRdCost::xGetSAD16( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -599,13 +612,13 @@ Distortion TComRdCost::xGetSAD16( DistParam* pcDtParam )
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
 
-#if AMP_SAD
 Distortion TComRdCost::xGetSAD12( DistParam* pcDtParam )
 {
   if ( pcDtParam->bApplyWeight )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -638,10 +651,10 @@ Distortion TComRdCost::xGetSAD12( DistParam* pcDtParam )
   uiSum <<= iSubShift;
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
-#endif
 
 Distortion TComRdCost::xGetSAD16N( DistParam* pcDtParam )
 {
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -688,6 +701,8 @@ Distortion TComRdCost::xGetSAD32( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -741,13 +756,14 @@ Distortion TComRdCost::xGetSAD32( DistParam* pcDtParam )
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
 
-#if AMP_SAD
 Distortion TComRdCost::xGetSAD24( DistParam* pcDtParam )
 {
   if ( pcDtParam->bApplyWeight )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -793,14 +809,14 @@ Distortion TComRdCost::xGetSAD24( DistParam* pcDtParam )
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
 
-#endif
-
 Distortion TComRdCost::xGetSAD64( DistParam* pcDtParam )
 {
   if ( pcDtParam->bApplyWeight )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -886,13 +902,13 @@ Distortion TComRdCost::xGetSAD64( DistParam* pcDtParam )
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
 
-#if AMP_SAD
 Distortion TComRdCost::xGetSAD48( DistParam* pcDtParam )
 {
   if ( pcDtParam->bApplyWeight )
   {
     return TComRdCostWeightPrediction::xGetSADw( pcDtParam );
   }
+
   const Pel* piOrg   = pcDtParam->pOrg;
   const Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -961,7 +977,7 @@ Distortion TComRdCost::xGetSAD48( DistParam* pcDtParam )
   uiSum <<= iSubShift;
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
-#endif
+
 
 // --------------------------------------------------------------------------------------------------------------------
 // SSE
@@ -1314,6 +1330,7 @@ Distortion TComRdCost::xGetSSE64( DistParam* pcDtParam )
   return ( uiSum );
 }
 
+
 // --------------------------------------------------------------------------------------------------------------------
 // HADAMARD with step (used in fractional search)
 // --------------------------------------------------------------------------------------------------------------------
@@ -1540,6 +1557,7 @@ Distortion TComRdCost::xGetHADs( DistParam* pcDtParam )
   {
     return TComRdCostWeightPrediction::xGetHADsw( pcDtParam );
   }
+
   Pel* piOrg   = pcDtParam->pOrg;
   Pel* piCur   = pcDtParam->pCur;
   Int  iRows   = pcDtParam->iRows;
@@ -1602,5 +1620,6 @@ Distortion TComRdCost::xGetHADs( DistParam* pcDtParam )
 
   return ( uiSum >> DISTORTION_PRECISION_ADJUSTMENT(pcDtParam->bitDepth-8) );
 }
+
 
 //! \}

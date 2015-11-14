@@ -91,7 +91,7 @@ public:
   virtual Void codeQtCbf         ( TComTU &rTu, const ComponentID compID, const Bool lowestLevel ) = 0;
   virtual Void codeQtRootCbf     ( TComDataCU* pcCU, UInt uiAbsPartIdx ) = 0;
   virtual Void codeQtCbfZero     ( TComTU &rTu, const ChannelType chType ) = 0;
-  virtual Void codeQtRootCbfZero ( TComDataCU* pcCU ) = 0;
+  virtual Void codeQtRootCbfZero ( ) = 0;
   virtual Void codeIntraDirLumaAng( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool isMultiplePU ) = 0;
 
   virtual Void codeIntraDirChroma( TComDataCU* pcCU, UInt uiAbsPartIdx ) = 0;
@@ -108,9 +108,6 @@ public:
   virtual Void codeSAOBlkParam   (SAOBlkParam& saoBlkParam, const BitDepths &bitDepths, Bool* sliceEnabled, Bool leftMergeAvail, Bool aboveMergeAvail, Bool onlyEstMergeInfo = false)    =0;
   virtual Void estBit               (estBitsSbacStruct* pcEstBitsSbac, Int width, Int height, ChannelType chType) = 0;
 
-  virtual Void codeDFFlag (UInt uiCode, const Char *pSymbolName) = 0;
-  virtual Void codeDFSvlc (Int iCode, const Char *pSymbolName)   = 0;
-
   virtual Void codeExplicitRdpcmMode ( TComTU &rTu, const ComponentID compID ) = 0;
 
   virtual ~TEncEntropyIf() {}
@@ -123,7 +120,11 @@ public:
   Void    setEntropyCoder           ( TEncEntropyIf* e );
   Void    setBitstream              ( TComBitIf* p )          { m_pcEntropyCoderIf->setBitstream(p);  }
   Void    resetBits                 ()                        { m_pcEntropyCoderIf->resetBits();      }
-  UInt    getNumberOfWrittenBits    ()                        { return m_pcEntropyCoderIf->getNumberOfWrittenBits(); }
+  UInt    getNumberOfWrittenBits    ()                        {
+#if NH_MV
+      D_PRINT_INDENT(g_encNumberOfWrittenBits,  "NumBits: " +  n2s( m_pcEntropyCoderIf->getNumberOfWrittenBits() ))
+#endif
+ return m_pcEntropyCoderIf->getNumberOfWrittenBits(); }
   Void    resetEntropy              (const TComSlice *pSlice) { m_pcEntropyCoderIf->resetEntropy(pSlice);  }
   SliceType determineCabacInitIdx   (const TComSlice *pSlice) { return m_pcEntropyCoderIf->determineCabacInitIdx(pSlice); }
 
@@ -160,7 +161,7 @@ public:
   Void encodeQtCbf             ( TComTU &rTu, const ComponentID compID, const Bool lowestLevel );
 
   Void encodeQtCbfZero         ( TComTU &rTu, const ChannelType chType );
-  Void encodeQtRootCbfZero     ( TComDataCU* pcCU );
+  Void encodeQtRootCbfZero     ( );
   Void encodeQtRootCbf         ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void encodeQP                ( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bRD = false );
   Void encodeChromaQpAdjustment ( TComDataCU* pcCU, UInt uiAbsPartIdx, Bool bRD = false );

@@ -52,7 +52,7 @@
 #include "TDecCAVLC.h"
 #include "SEIread.h"
 
-struct InputNALUnit;
+class InputNALUnit;
 
 //! \ingroup TLibDecoder
 //! \{
@@ -61,21 +61,27 @@ struct InputNALUnit;
 // Class definition
 // ====================================================================================================================
 
+#if NH_MV
+class TAppDecTop;
+#endif
 /// decoder class
 class TDecTop
 {
 private:
-  Int                     m_iMaxRefPicNum;
+  Int                         m_iMaxRefPicNum;
+                              
+  NalUnitType                 m_associatedIRAPType; ///< NAL unit type of the associated IRAP picture
+#if !NH_MV
+  Int                         m_pocCRA;            ///< POC number of the latest CRA picture
+  Int                         m_pocRandomAccess;   ///< POC number of the random access point (the first IDR or CRA picture)
+  
+  TComList<TComPic*>           m_cListPic;         //  Dynamic buffer
+  ParameterSetManager          m_parameterSetManager;  // storage for parameter sets
+#endif
 
-  NalUnitType             m_associatedIRAPType; ///< NAL unit type of the associated IRAP picture
-  Int                     m_pocCRA;            ///< POC number of the latest CRA picture
-  Int                     m_pocRandomAccess;   ///< POC number of the random access point (the first IDR or CRA picture)
-
-  TComList<TComPic*>      m_cListPic;         //  Dynamic buffer
-  ParameterSetManager     m_parameterSetManager;  // storage for parameter sets
   TComSlice*              m_apcSlicePilot;
 
-  SEIMessages             m_SEIs; ///< List of SEI messages that have been received before the first slice and between slices
+  SEIMessages             m_SEIs; ///< List of SEI messages that have been received before the first slice and between slices, excluding prefix SEIs...
 
   // functional classes
   TComPrediction          m_cPrediction;
@@ -92,12 +98,16 @@ private:
   TComSampleAdaptiveOffset m_cSAO;
 
   Bool isSkipPictureForBLA(Int& iPOCLastDisplay);
+#if !NH_MV
   Bool isRandomAccessSkipPicture(Int& iSkipFrame,  Int& iPOCLastDisplay);
+#endif
+
   TComPic*                m_pcPic;
   UInt                    m_uiSliceIdx;
+#if !NH_MV
   Int                     m_prevPOC;
   Int                     m_prevTid0POC;
-  Bool                    m_bFirstSliceInPicture;
+  Bool                    m_bFirstSliceInPicture;  
   Bool                    m_bFirstSliceInSequence;
   Bool                    m_prevSliceSkipped;
   Int                     m_skippedPOC;
@@ -105,13 +115,54 @@ private:
   Int                     m_lastPOCNoOutputPriorPics;
   Bool                    m_isNoOutputPriorPics;
   Bool                    m_craNoRaslOutputFlag;    //value of variable NoRaslOutputFlag of the last CRA pic
+#endif
+  
 #if O0043_BEST_EFFORT_DECODING
   UInt                    m_forceDecodeBitDepth;
 #endif
+
+
   std::ostream           *m_pDecodedSEIOutputStream;
 
+#if !NH_MV
   Bool                    m_warningMessageSkipPicture;
+#endif
 
+#if NH_MV
+  // Class interface 
+  static ParameterSetManager  m_parameterSetManager;  // storage for parameter sets 
+  TComPicLists*           m_dpb; 
+
+  // Layer identification
+  Int                     m_layerId;
+  Int                     m_viewId;
+
+  // Layer set
+  Int                     m_targetOlsIdx; 
+  Int                     m_smallestLayerId; 
+  Bool                    m_isInOwnTargetDecLayerIdList;   
+
+  // Decoding processes 
+  DecodingProcess         m_decodingProcess;
+  DecodingProcess         m_decProcPocAndRps;
+
+  // Decoding state
+  Bool*                   m_firstPicInLayerDecodedFlag;   
+    
+  Int                     m_prevPicOrderCnt; 
+  Int                     m_prevTid0PicPicOrderCntMsb;
+  Int                     m_prevTid0PicSlicePicOrderCntLsb;
+  
+  Int*                    m_lastPresentPocResetIdc;
+  Bool*                   m_pocDecrementedInDpbFlag; 
+
+  Int                     m_prevIrapPoc;
+  Int64                   m_prevIrapDecodingOrder;
+  Int64                   m_prevStsaDecOrder;
+  Int                     m_prevStsaTemporalId;
+#endif
+
+  std::list<InputNALUnit*> m_prefixSEINALUs; /// Buffered up prefix SEI NAL Units.
 public:
   TDecTop();
   virtual ~TDecTop();
@@ -122,41 +173,138 @@ public:
   Void setDecodedPictureHashSEIEnabled(Int enabled) { m_cGopDecoder.setDecodedPictureHashSEIEnabled(enabled); }
 
   Void  init();
+#if !NH_MV
   Bool  decode(InputNALUnit& nalu, Int& iSkipFrame, Int& iPOCLastDisplay);
   Void  deletePicBuffer();
 
-  
   Void  executeLoopFilters(Int& poc, TComList<TComPic*>*& rpcListPic);
   Void  checkNoOutputPriorPics (TComList<TComPic*>* rpcListPic);
 
   Bool  getNoOutputPriorPicsFlag () { return m_isNoOutputPriorPics; }
   Void  setNoOutputPriorPicsFlag (Bool val) { m_isNoOutputPriorPics = val; }
+  
   Void  setFirstSliceInPicture (bool val)  { m_bFirstSliceInPicture = val; }
+
   Bool  getFirstSliceInSequence ()         { return m_bFirstSliceInSequence; }
   Void  setFirstSliceInSequence (bool val) { m_bFirstSliceInSequence = val; }
+#endif
+
 #if O0043_BEST_EFFORT_DECODING
   Void  setForceDecodeBitDepth(UInt bitDepth) { m_forceDecodeBitDepth = bitDepth; }
 #endif
+
   Void  setDecodedSEIMessageOutputStream(std::ostream *pOpStream) { m_pDecodedSEIOutputStream = pOpStream; }
   UInt  getNumberOfChecksumErrorsDetected() const { return m_cGopDecoder.getNumberOfChecksumErrorsDetected(); }
 
+#if NH_MV    
+
+  /////////////////////////
+  // For access from TAppDecTop
+  /////////////////////////
+
+  // Non VCL decoding
+  Bool       decodeNonVclNalu            ( InputNALUnit& nalu );                                    
+                                    
+  // Start picture decoding         
+  Int        preDecodePoc                ( Bool firstPicInLayerDecodedFlag, Bool isFstPicOfAllLayOfPocResetPer, Bool isPocResettingPicture ); 
+  Void       inferPocResetPeriodId       ( );
+  Void       decodeSliceHeader           ( InputNALUnit &nalu );    
+
+  // Picture decoding 
+  Void       activatePSsAndInitPicOrSlice( TComPic* newPic ); 
+  Void       decodePocAndRps             ( );
+  Void       genUnavailableRefPics       ( );                               
+  Void       decodeSliceSegment          ( InputNALUnit &nalu );
+                                    
+  // End Picture decoding           
+  Void       executeLoopFilters          ( );
+  Void       finalizePic( );
+  
+  //////////////////////////
+  // For access from slice 
+  /////////////////////////
+  Void       initFromActiveVps           ( const TComVPS* vps );
+
+  //////////////////////////
+  // General access
+  /////////////////////////
+  
+  // Picture identification 
+  Void       setLayerId            ( Int layer )       { m_layerId = layer;   }
+  Int        getLayerId            ( )                 { return m_layerId;    }
+  Void       setViewId             ( Int viewId )      { m_viewId  = viewId;  }
+  Int        getViewId             ( )                 { return m_viewId;     }  
+
+  // Classes
+  Void       setDpb                ( TComPicLists* picLists) { m_dpb = picLists; }
+
+  // Slice pilot access
+  TComSlice* getSlicePilot                ( )               { return m_apcSlicePilot; }
+                                                                         
+  // Decoding state                                                      
+  Bool      getFirstSliceSegementInPicFlag( );              
+  Void      setFirstPicInLayerDecodedFlag(Bool* val )      { m_firstPicInLayerDecodedFlag = val;  }
+  Void      setPocDecrementedInDPBFlag   (Bool* val )      { m_pocDecrementedInDpbFlag = val;  }  
+  Void      setLastPresentPocResetIdc    (Int*  val )      { m_lastPresentPocResetIdc  = val;  }
+                                                           
+  // Layer sets                                                          
+  Void      setTargetOlsIdx        ( Int targetOlsIdx )    { m_targetOlsIdx = targetOlsIdx; }    
+  Int       getTargetOlsIdx        ( )                     { return m_targetOlsIdx; }    
+  Int       getSmallestLayerId     ( )                     { return m_smallestLayerId; }    
+  Bool      getIsInOwnTargetDecLayerIdList()               { return m_isInOwnTargetDecLayerIdList; }
+                                                                         
+  // Decoding processes identification                                   
+  Bool      decProcClause8( )                              { return ( m_decodingProcess == CLAUSE_8 ); }
+  Bool      decProcAnnexF ( )                              { return ( decProcAnnexG() || decProcAnnexH() || decProcAnnexI() ); }
+  Bool      decProcAnnexG ( )                              { return ( m_decodingProcess == ANNEX_G || decProcAnnexI() ); }
+  Bool      decProcAnnexH ( )                              { return ( m_decodingProcess == ANNEX_H  ); }
+  Bool      decProcAnnexI ( )                              { return ( m_decodingProcess == ANNEX_I  ); }
+                                                                         
+  DecodingProcess getDecodingProcess ( ) const                   { return m_decodingProcess;                }
+  Void      setDecProcPocAndRps( DecodingProcess decProc ) { m_decProcPocAndRps = decProc; }    
+#endif
+
 protected:
-  Void  xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);
-  Void  xCreateLostPicture (Int iLostPOC);
 
+#if !NH_MV
+  Void      xGetNewPicBuffer  (const TComSPS &sps, const TComPPS &pps, TComPic*& rpcPic, const UInt temporalLayer);
+  Void      xCreateLostPicture (Int iLostPOC);
   Void      xActivateParameterSets();
-  Bool      xDecodeSlice(InputNALUnit &nalu, Int &iSkipFrame, Int iPOCLastDisplay);
-  Void      xDecodeVPS(const std::vector<UChar> *pNaluData);
-  Void      xDecodeSPS(const std::vector<UChar> *pNaluData);
-  Void      xDecodePPS(const std::vector<UChar> *pNaluData);
-  Void      xDecodeSEI( TComInputBitstream* bs, const NalUnitType nalUnitType );
-  Void      xUpdatePreviousTid0POC( TComSlice *pSlice ) { if ((pSlice->getTLayer()==0) && (pSlice->isReferenceNalu() && (pSlice->getNalUnitType()!=NAL_UNIT_CODED_SLICE_RASL_R)&& (pSlice->getNalUnitType()!=NAL_UNIT_CODED_SLICE_RADL_R))) { m_prevTid0POC=pSlice->getPOC(); } }
+  Bool      xDecodeSlice                   (InputNALUnit &nalu, Int &iSkipFrame, Int iPOCLastDisplay);
+#endif
 
+  Void      xDecodeVPS(const std::vector<UChar> &naluData);
+  Void      xDecodeSPS(const std::vector<UChar> &naluData);
+  Void      xDecodePPS(const std::vector<UChar> &naluData);  
+#if !NH_MV
+  Void      xUpdatePreviousTid0POC( TComSlice *pSlice ) { if ((pSlice->getTLayer()==0) && (pSlice->isReferenceNalu() && (pSlice->getNalUnitType()!=NAL_UNIT_CODED_SLICE_RASL_R)&& (pSlice->getNalUnitType()!=NAL_UNIT_CODED_SLICE_RADL_R))) { m_prevTid0POC=pSlice->getPOC(); } }
+#endif
+
+  Void      xParsePrefixSEImessages();
+  Void      xParsePrefixSEIsForUnknownVCLNal();
+
+#if NH_MV
+  // POC 
+  Void      x831DecProcForPicOrderCount         ( );
+  Void      xF831DecProcForPicOrderCount        ( );
+  Int       xGetCurrMsb                         ( Int cl, Int pl, Int pm, Int ml ); 
+
+  //RPS                                         
+  Void      x832DecProcForRefPicSet             ( Bool annexFModifications ); 
+  Void      xF832DecProcForRefPicSet            ( );
+  Void      xG813DecProcForInterLayerRefPicSet  ( );
+
+  // Unavailable Pics 
+  Void      x8331GenDecProcForGenUnavilRefPics  ( );
+  TComPic*  x8332GenOfOneUnavailPic             ( Bool calledFromCl8331 );
+  Void      xF817DecProcForGenUnavRefPicForPicsFrstInDecOrderInLay();
+  Void      xF833DecProcForGenUnavRefPics       ( );  
+  Void      xCheckUnavailableRefPics            ( ); 
+#endif
 
 };// END CLASS DEFINITION TDecTop
 
 
 //! \}
-
 #endif // __TDECTOP__
 

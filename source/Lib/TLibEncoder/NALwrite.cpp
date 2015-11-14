@@ -52,7 +52,11 @@ TComOutputBitstream bsNALUHeader;
 
   bsNALUHeader.write(0,1);                    // forbidden_zero_bit
   bsNALUHeader.write(nalu.m_nalUnitType, 6);  // nal_unit_type
+#if NH_MV
+  bsNALUHeader.write(nalu.m_nuhLayerId, 6);      // layerId       
+#else
   bsNALUHeader.write(nalu.m_nuhLayerId, 6);   // nuh_layer_id
+#endif
   bsNALUHeader.write(nalu.m_temporalId+1, 3); // nuh_temporal_id_plus1
 
   out.write(bsNALUHeader.getByteStream(), bsNALUHeader.getByteStreamLength());
@@ -120,15 +124,6 @@ Void write(ostream& out, OutputNALUnit& nalu)
     outputBuffer[outputAmount++]=emulation_prevention_three_byte[0];
   }
   out.write((Char*)&(*outputBuffer.begin()), outputAmount);
-}
-
-/**
- * Write rbsp_trailing_bits to bs causing it to become byte-aligned
- */
-Void writeRBSPTrailingBits(TComOutputBitstream& bs)
-{
-  bs.write( 1, 1 );
-  bs.writeAlignZero();
 }
 
 //! \}

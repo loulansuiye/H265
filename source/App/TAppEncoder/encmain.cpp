@@ -34,13 +34,12 @@
 /** \file     encmain.cpp
     \brief    Encoder application main
 */
-#include <nvToolsExtCuda.h>
-#include <nvToolsExtCudaRt.h>
+
 #include <time.h>
 #include <iostream>
 #include "TAppEncTop.h"
 #include "TAppCommon/program_options_lite.h"
-#include <cuda_runtime.h>
+
 //! \ingroup TAppEncoder
 //! \{
 
@@ -49,20 +48,18 @@
 // ====================================================================================================================
 // Main function
 // ====================================================================================================================
-extern Double dTotalIntMeTime; //JCY
-extern Double dTotalSubIntMeTime; //JCY
-extern Double dTotalBiRefIntMeTime; //JCY
-
 
 int main(int argc, char* argv[])
 {
   TAppEncTop  cTAppEncTop;
-  nvtxNameOsThreadA(pthread_self(),"MAIN");
-  cudaSetDevice(1); //JCY global switch device
 
   // print information
   fprintf( stdout, "\n" );
+#if NH_MV
+  fprintf( stdout, "3D-HTM Software: Encoder Version [%s] based on HM Version [%s]", NV_VERSION, HM_VERSION );  
+#else
   fprintf( stdout, "HM software: Encoder Version [%s] (including RExt)", NV_VERSION );
+#endif
   fprintf( stdout, NVM_ONOS );
   fprintf( stdout, NVM_COMPILEDBY );
   fprintf( stdout, NVM_BITS );
@@ -107,9 +104,6 @@ int main(int argc, char* argv[])
   // ending time
   dResult = (Double)(clock()-lBefore) / CLOCKS_PER_SEC;
   printf("\n Total Time: %12.3f sec.\n", dResult);
-  printf("\n Total Integer ME: %12.3f sec.\n", dTotalIntMeTime);
-  printf("\n Total Sub-Integer ME: %12.3f sec.\n", dTotalSubIntMeTime);
-  printf("\n Total Bi-refinement ME: %12.3f sec.\n", dTotalBiRefIntMeTime);
 
   // destroy application encoder class
   cTAppEncTop.destroy();

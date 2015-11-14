@@ -155,6 +155,9 @@ Void TEncBinCABAC::copyState( const TEncBinIf* pcTEncBinIf )
   m_numBufferedBytes = pcTEncBinCABAC->m_numBufferedBytes;
 #if FAST_BIT_EST
   m_fracBits = pcTEncBinCABAC->m_fracBits;
+#if NH_MV
+  D_PRINT_INDENT(g_traceEncFracBits,  "CopyState " + n2s(m_fracBits) );    
+#endif
 #endif
 }
 
@@ -169,7 +172,13 @@ Void TEncBinCABAC::resetBits()
     m_uiBinsCoded = 0;
   }
 #if FAST_BIT_EST
+#if NH_MV
+  D_PRINT_INDENT( g_traceEncFracBits, "Reset Bits Before" + n2s(m_fracBits) );
+#endif
   m_fracBits &= 32767;
+#if NH_MV
+  D_PRINT_INDENT( g_traceEncFracBits, "Reset Bits " + n2s(m_fracBits) );  
+#endif
 #endif
 }
 
@@ -186,6 +195,7 @@ UInt TEncBinCABAC::getNumWrittenBits()
  */
 Void TEncBinCABAC::encodeBin( UInt binValue, ContextModel &rcCtxModel )
 {
+#if !NH_MV
   //{
   //  DTRACE_CABAC_VL( g_nSymbolCounter++ )
   //  DTRACE_CABAC_T( "\tstate=" )
@@ -194,8 +204,8 @@ Void TEncBinCABAC::encodeBin( UInt binValue, ContextModel &rcCtxModel )
   //  DTRACE_CABAC_V( binValue )
   //  DTRACE_CABAC_T( "\n" )
   //}
-
-#ifdef DEBUG_CABAC_BINS
+#endif
+#if DEBUG_CABAC_BINS
   const UInt startingRange = m_uiRange;
 #endif
 
@@ -227,7 +237,7 @@ Void TEncBinCABAC::encodeBin( UInt binValue, ContextModel &rcCtxModel )
     }
   }
 
-#ifdef DEBUG_CABAC_BINS
+#if DEBUG_CABAC_BINS
   if ((g_debugCounter + debugCabacBinWindow) >= debugCabacBinTargetLine)
   {
     std::cout << g_debugCounter << ": coding bin value " << binValue << ", range = [" << startingRange << "->" << m_uiRange << "]\n";
@@ -256,10 +266,12 @@ Void TEncBinCABAC::encodeBinEP( UInt binValue )
 {
   if (false)
   {
+#if !NH_MV
     DTRACE_CABAC_VL( g_nSymbolCounter++ )
     DTRACE_CABAC_T( "\tEPsymbol=" )
     DTRACE_CABAC_V( binValue )
     DTRACE_CABAC_T( "\n" )
+#endif
   }
 
   m_uiBinsCoded += m_binCountIncrement;
@@ -294,10 +306,12 @@ Void TEncBinCABAC::encodeBinsEP( UInt binValues, Int numBins )
   {
     for ( Int i = 0; i < numBins; i++ )
     {
+#if !NH_MV
       DTRACE_CABAC_VL( g_nSymbolCounter++ )
       DTRACE_CABAC_T( "\tEPsymbol=" )
       DTRACE_CABAC_V( ( binValues >> ( numBins - 1 - i ) ) & 1 )
       DTRACE_CABAC_T( "\n" )
+#endif
     }
   }
 

@@ -53,6 +53,62 @@
 
 /// picture class (symbol + YUV buffers)
 
+
+
+#if NH_MV
+class TComPic; 
+
+class TComDecodedRps
+{
+public: 
+
+  TComDecodedRps()
+  {
+    m_refPicSetsCurr[0] = &m_refPicSetStCurrBefore;
+    m_refPicSetsCurr[1] = &m_refPicSetStCurrAfter ;
+    m_refPicSetsCurr[2] = &m_refPicSetLtCurr      ; 
+
+    m_refPicSetsLt  [0] = &m_refPicSetLtCurr      ; 
+    m_refPicSetsLt  [1] = &m_refPicSetLtFoll      ;
+
+    m_refPicSetsAll [0] = &m_refPicSetStCurrBefore;
+    m_refPicSetsAll [1] = &m_refPicSetStCurrAfter ;
+    m_refPicSetsAll [2] = &m_refPicSetStFoll      ;
+    m_refPicSetsAll [3] = &m_refPicSetLtCurr      ;
+    m_refPicSetsAll [4] = &m_refPicSetLtFoll      ;
+  };    
+
+  std::vector<Int>       m_pocStCurrBefore;
+  std::vector<Int>       m_pocStCurrAfter;
+  std::vector<Int>       m_pocStFoll;    
+  std::vector<Int>       m_pocLtCurr;
+  std::vector<Int>       m_pocLtFoll; 
+
+  Int                    m_numPocStCurrBefore;
+  Int                    m_numPocStCurrAfter;
+  Int                    m_numPocStFoll;
+  Int                    m_numPocLtCurr;
+  Int                    m_numPocLtFoll;
+
+  std::vector<TComPic*>  m_refPicSetStCurrBefore; 
+  std::vector<TComPic*>  m_refPicSetStCurrAfter; 
+  std::vector<TComPic*>  m_refPicSetStFoll; 
+  std::vector<TComPic*>  m_refPicSetLtCurr; 
+  std::vector<TComPic*>  m_refPicSetLtFoll;   
+
+  std::vector<TComPic*>* m_refPicSetsCurr[3];
+  std::vector<TComPic*>* m_refPicSetsLt  [2];
+  std::vector<TComPic*>* m_refPicSetsAll [5];
+
+  // Annex F
+  Int                    m_numActiveRefLayerPics0;
+  Int                    m_numActiveRefLayerPics1;     
+
+  std::vector<TComPic*>  m_refPicSetInterLayer0;
+  std::vector<TComPic*>  m_refPicSetInterLayer1;
+};
+#endif
+
 class TComPic
 {
 public:
@@ -71,6 +127,7 @@ private:
   TComPicYuv*           m_pcPicYuvResi;           //  Residual
   Bool                  m_bReconstructed;
   Bool                  m_bNeededForOutput;
+
   UInt                  m_uiCurrSliceIdx;         // Index of current slice
   Bool                  m_bCheckLTMSB;
 
@@ -80,7 +137,22 @@ private:
   std::vector<std::vector<TComDataCU*> > m_vSliceCUDataLink;
 
   SEIMessages  m_SEIs; ///< Any SEI messages that have been received.  If !NULL we own the object.
-
+#if NH_MV
+  Int                   m_layerId;
+  Int                   m_viewId;
+  Bool                  m_bPicOutputFlag;                // Semantics variable 
+  Bool                  m_hasGeneratedRefPics; 
+  Bool                  m_isPocResettingPic; 
+  Bool                  m_isFstPicOfAllLayOfPocResetPer; 
+  Int64                 m_decodingOrder; 
+  Bool                  m_noRaslOutputFlag; 
+  Bool                  m_noClrasOutputFlag; 
+  Int                   m_picLatencyCount; 
+  Bool                  m_isGenerated;
+  Bool                  m_isGeneratedCl833; 
+  Bool                  m_activatesNewVps;
+  TComDecodedRps        m_decodedRps;
+#endif
 public:
   TComPic();
   virtual ~TComPic();
@@ -154,6 +226,73 @@ public:
    Void              setField(Bool b)                     {m_isField = b;}
    Bool              isField()                            {return m_isField;}
 
+#if NH_MV
+   Void          setLayerId            ( Int layerId )    { m_layerId      = layerId; }
+   Int           getLayerId            ()                 { return m_layerId;    }
+   
+   Void          setViewId             ( Int viewId )     { m_viewId = viewId;   }
+   Int           getViewId             ()                 { return m_viewId;     }
+
+   Void          setPicOutputFlag(Bool b)                 { m_bPicOutputFlag = b;      }
+   Bool          getPicOutputFlag()                       { return m_bPicOutputFlag ;  }
+
+   Bool          getPocResetPeriodId();
+
+   Void          markAsUsedForShortTermReference();
+   Void          markAsUsedForLongTermReference(); 
+   Void          markAsUnusedForReference(); 
+
+   Bool          getMarkedUnUsedForReference();
+   Bool          getMarkedAsShortTerm();
+
+   Void          setHasGeneratedRefPics(Bool val)       { m_hasGeneratedRefPics  = val;    }
+   Bool          getHasGeneratedRefPics( )              { return m_hasGeneratedRefPics;   }
+
+   Void          setIsPocResettingPic(Bool val)         { m_isPocResettingPic = val;    }
+   Bool          getIsPocResettingPic( )                { return m_isPocResettingPic;   }
+
+   Void          setIsFstPicOfAllLayOfPocResetPer(Bool val) { m_isFstPicOfAllLayOfPocResetPer = val;  }
+   Bool          getIsFstPicOfAllLayOfPocResetPer( )        { return m_isFstPicOfAllLayOfPocResetPer; }
+
+   Int64         getDecodingOrder( )                    { return m_decodingOrder;       }
+   Void          setDecodingOrder( UInt64 val  )        { m_decodingOrder = val;        }
+
+   Bool          getNoRaslOutputFlag()                  { return m_noRaslOutputFlag;     }
+   Void          setNoRaslOutputFlag( Bool b )          { m_noRaslOutputFlag = b;        }
+
+   Bool          getNoClrasOutputFlag()                 { return m_noClrasOutputFlag;    }
+   Void          setNoClrasOutputFlag( Bool b )         { m_noClrasOutputFlag = b;       }
+
+   Int           getPicLatencyCount()                   { return m_picLatencyCount;      }
+   Void          setPicLatencyCount( Int val )          { m_picLatencyCount = val;       }
+
+   Bool          getIsGenerated() const                 { return m_isGenerated;          }
+   Void          setIsGenerated( Bool b )               { m_isGenerated = b;             }
+
+   Bool          getIsGeneratedCl833() const            { return m_isGeneratedCl833;     }
+   Void          setIsGeneratedCl833( Bool b )          { m_isGeneratedCl833 = b;        }
+
+   Int           getTemporalId( )                       { return getSlice(0)->getTemporalId(); }
+
+   Bool          getActivatesNewVps()                   { return m_activatesNewVps;      }
+   Void          setActivatesNewVps( Bool b )           { m_activatesNewVps = b;         }
+
+   TComDecodedRps* getDecodedRps()                      { return &m_decodedRps;          }
+
+   Bool          isIrap()                               { return getSlice(0)->isIRAP(); } 
+   Bool          isBla ()                               { return getSlice(0)->isBla (); } 
+   Bool          isIdr ()                               { return getSlice(0)->isIdr (); } 
+   Bool          isCra ()                               { return getSlice(0)->isCra (); } 
+   Bool          isSlnr ()                              { return getSlice(0)->isSlnr (); }
+   Bool          isRasl ()                              { return getSlice(0)->isRasl (); }
+   Bool          isRadl ()                              { return getSlice(0)->isRadl (); }
+   Bool          isStsa ()                              { return getSlice(0)->isStsa (); }
+   Bool          isTsa ()                               { return getSlice(0)->isTsa  (); }
+
+   Void          print( Int outputLevel );
+
+#endif
+
   /** transfer ownership of seis to this picture */
   Void setSEIs(SEIMessages& seis) { m_SEIs = seis; }
 
@@ -167,6 +306,98 @@ public:
    * Pointer is valid until this->destroy() is called */
   const SEIMessages& getSEIs() const { return m_SEIs; }
 };// END CLASS DEFINITION TComPic
+
+#if NH_MV
+
+class TComAu : public TComList<TComPic*>
+{
+  
+public:
+
+  Int                 getPoc            ( )                     {  assert(!empty()); return back()->getPOC            ();  }
+  Void                setPicLatencyCount( Int picLatenyCount );
+  Int                 getPicLatencyCount( )                     {  assert(!empty()); return back()->getPicLatencyCount();  }  
+  TComPic*            getPic            ( Int nuhLayerId  );
+  Void                addPic            ( TComPic* pic, Bool pocUnkown );
+  Bool                containsPic       ( TComPic* pic );  
+};
+
+
+class TComSubDpb : public TComList<TComPic*>
+{
+private: 
+  Int m_nuhLayerId; 
+public:  
+  TComSubDpb( Int nuhLayerid );
+
+  Int                 getLayerId                      ( ) { return m_nuhLayerId; }
+
+  TComPic*            getPic                          ( Int poc  );
+  TComPic*            getPicFromLsb                   ( Int pocLsb, Int maxPicOrderCntLsb );
+  TComPic*            getShortTermRefPic              ( Int poc  );
+  TComList<TComPic*>  getPicsMarkedNeedForOutput      ( );
+
+  Void                markAllAsUnusedForReference     ( );
+
+  Void                addPic                          ( TComPic* pic );
+  Void                removePics                      ( std::vector<TComPic*> picToRemove );
+  Bool                areAllPicsMarkedNotNeedForOutput( );
+};
+
+class TComPicLists 
+{
+private: 
+  TComList<TComAu*    >       m_aus;  
+  TComList<TComSubDpb*>       m_subDpbs; 
+  Bool                        m_printPicOutput; 
+public: 
+  TComPicLists() { m_printPicOutput = false; };
+  ~TComPicLists();
+
+  // Add and remove single pictures
+  Void                   addNewPic( TComPic* pic );
+  Void                   removePic( TComPic* pic );
+
+  // Get Pics
+  TComPic*               getPic                         ( Int layerIdInNuh, Int poc );
+  TComPicYuv*            getPicYuv                      ( Int layerIdInNuh, Int poc, Bool recon );
+
+  // Get and AUs and SubDPBs
+  TComSubDpb*            getSubDpb                      ( Int nuhLayerId, Bool create );
+  TComList<TComSubDpb*>* getSubDpbs                     ( );
+                                                        
+  TComAu*                addAu                          ( Int poc  );
+  TComAu*                getAu                          ( Int poc, Bool create );
+  TComList<TComAu*>*     getAus                         ( );
+  TComList<TComAu*>      getAusHavingPicsMarkedForOutput( );
+
+  // Mark pictures and set POCs
+  Void                   markSubDpbAsUnusedForReference ( Int layerIdInNuh );
+  Void                   markSubDpbAsUnusedForReference ( TComSubDpb& subDpb );
+  Void                   markAllSubDpbAsUnusedForReference(  );
+  Void                   decrementPocsInSubDpb          ( Int nuhLayerId, Int deltaPocVal );
+  
+  // Empty Sub DPBs
+  Void                   emptyAllSubDpbs                ( );
+  Void                   emptySubDpbs                   ( TComList<TComSubDpb*>* subDpbs);
+  Void                   emptySubDpb                    ( TComSubDpb* subDpb);
+  Void                   emptySubDpb                    ( Int nuhLayerId );
+
+  Void                   emptyNotNeedForOutputAndUnusedForRef      ( );
+  Void                   emptySubDpbNotNeedForOutputAndUnusedForRef( Int layerId  );
+  Void                   emptySubDpbNotNeedForOutputAndUnusedForRef( TComSubDpb subDpb );  
+
+  // For printing to std::out 
+  Void                   setPrintPicOutput ( Bool printPicOutput ) { m_printPicOutput = printPicOutput; };
+  Void                   print(); 
+
+
+}; 
+
+// END CLASS DEFINITION TComPicLists
+
+#endif
+
 
 //! \}
 

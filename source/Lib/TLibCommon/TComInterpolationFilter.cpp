@@ -57,8 +57,8 @@
 const TFilterCoeff TComInterpolationFilter::m_lumaFilter[LUMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS][NTAPS_LUMA] =
 {
   {  0, 0,   0, 64,  0,   0, 0,  0 },
-  { -1, 4, -10, 58, 17,  -5, 1,  0 }, //m_lumaFilter[1] quarter sample
-  { -1, 4, -11, 40, 40, -11, 4, -1 }, //m_lumaFilter[2] half sample
+  { -1, 4, -10, 58, 17,  -5, 1,  0 },
+  { -1, 4, -11, 40, 40, -11, 4, -1 },
   {  0, 1,  -5, 17, 58, -10, 4, -1 }
 };
 
@@ -73,6 +73,7 @@ const TFilterCoeff TComInterpolationFilter::m_chromaFilter[CHROMA_INTERPOLATION_
   { -2, 16, 54, -4 },
   { -2, 10, 58, -2 }
 };
+
 
 // ====================================================================================================================
 // Private member functions
@@ -108,16 +109,16 @@ Void TComInterpolationFilter::filterCopy(Int bitDepth, const Pel *src, Int srcSt
       dst += dstStride;
     }
   }
-  else if ( isFirst )//JCY always come here
+  else if ( isFirst )
   {
-    const Int shift = std::max<Int>(2, (IF_INTERNAL_PREC - bitDepth)); //(IF_INTERNAL_PREC - 8) = 6;
+    const Int shift = std::max<Int>(2, (IF_INTERNAL_PREC - bitDepth));
 
     for (row = 0; row < height; row++)
     {
       for (col = 0; col < width; col++)
       {
-        Pel val = leftShift_round(src[col], shift); //shift=6
-        dst[col] = val - (Pel)IF_INTERNAL_OFFS; //(val - 8192)
+        Pel val = leftShift_round(src[col], shift);
+        dst[col] = val - (Pel)IF_INTERNAL_OFFS;
       }
 
       src += srcStride;
@@ -174,7 +175,6 @@ Void TComInterpolationFilter::filter(Int bitDepth, Pel const *src, Int srcStride
 {
   Int row, col;
 
-  //JCY N=bit depth
   Pel c[8];
   c[0] = coeff[0];
   c[1] = coeff[1];
@@ -278,7 +278,7 @@ Void TComInterpolationFilter::filterHor(Int bitDepth, Pel *src, Int srcStride, P
   {
     filter<N, false, true, true>(bitDepth, src, srcStride, dst, dstStride, width, height, coeff);
   }
-  else //JCY filterHor always come here
+  else
   {
     filter<N, false, true, false>(bitDepth, src, srcStride, dst, dstStride, width, height, coeff);
   }
@@ -339,16 +339,18 @@ Void TComInterpolationFilter::filterVer(Int bitDepth, Pel *src, Int srcStride, P
  * \param  fmt        Chroma format
  * \param  bitDepth   Bit depth
  */
-Void TComInterpolationFilter::filterHor(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isLast, const ChromaFormat fmt, const Int bitDepth )
+Void TComInterpolationFilter::filterHor(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isLast, const ChromaFormat fmt, const Int bitDepth 
+)
 {
-  if ( frac == 0 ) //JCY shifting
+  if ( frac == 0 )
   {
     filterCopy(bitDepth, src, srcStride, dst, dstStride, width, height, true, isLast );
   }
-  else if (isLuma(compID)) //Filter comes here
+  else if (isLuma(compID))
   {
     assert(frac >= 0 && frac < LUMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS);
     filterHor<NTAPS_LUMA>(bitDepth, src, srcStride, dst, dstStride, width, height, isLast, m_lumaFilter[frac]);
+
   }
   else
   {
@@ -375,7 +377,8 @@ Void TComInterpolationFilter::filterHor(const ComponentID compID, Pel *src, Int 
  * \param  fmt        Chroma format
  * \param  bitDepth   Bit depth
  */
-Void TComInterpolationFilter::filterVer(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isFirst, Bool isLast, const ChromaFormat fmt, const Int bitDepth )
+Void TComInterpolationFilter::filterVer(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isFirst, Bool isLast, const ChromaFormat fmt, const Int bitDepth 
+)
 {
   if ( frac == 0 )
   {
@@ -385,13 +388,13 @@ Void TComInterpolationFilter::filterVer(const ComponentID compID, Pel *src, Int 
   {
     assert(frac >= 0 && frac < LUMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS);
     filterVer<NTAPS_LUMA>(bitDepth, src, srcStride, dst, dstStride, width, height, isFirst, isLast, m_lumaFilter[frac]);
+
   }
   else
   {
     const UInt csy = getComponentScaleY(compID, fmt);
     assert(frac >=0 && csy<2 && (frac<<(1-csy)) < CHROMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS);
     filterVer<NTAPS_CHROMA>(bitDepth, src, srcStride, dst, dstStride, width, height, isFirst, isLast, m_chromaFilter[frac<<(1-csy)]);
-  }
-}
-
+    }
+    }
 //! \}

@@ -38,6 +38,9 @@
 
 #include <sstream>
 #include "CommonDef.h"
+#if NH_MV
+#include <vector>
+#endif
 
 class TComOutputBitstream;
 
@@ -48,8 +51,17 @@ struct NALUnit
 {
   NalUnitType m_nalUnitType; ///< nal_unit_type
   UInt        m_temporalId;  ///< temporal_id
+#if NH_MV
+  Int         m_nuhLayerId;     ///< layer id
+#else
   UInt        m_nuhLayerId;  ///< nuh_layer_id
+#endif
 
+  NALUnit(const NALUnit &src)
+  :m_nalUnitType (src.m_nalUnitType)
+  ,m_temporalId  (src.m_temporalId)
+  ,m_nuhLayerId  (src.m_nuhLayerId)
+  { }
   /** construct an NALunit structure with given header values. */
   NALUnit(
     NalUnitType nalUnitType,
@@ -60,8 +72,10 @@ struct NALUnit
     ,m_nuhLayerId  (nuhLayerId)
   {}
 
-  /** default constructor - no initialization; must be perfomed by user */
+  /** default constructor - no initialization; must be performed by user */
   NALUnit() {}
+
+  virtual ~NALUnit() { }
 
   /** returns true if the NALunit is a slice NALunit */
   Bool isSlice()
@@ -83,6 +97,37 @@ struct NALUnit
         || m_nalUnitType == NAL_UNIT_CODED_SLICE_RASL_N
         || m_nalUnitType == NAL_UNIT_CODED_SLICE_RASL_R;
   }
+#if NH_MV
+  Bool isIrap()
+  {
+   return  m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP
+        || m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA;
+  }
+
+  Bool isIdr()
+  {
+    return  m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_W_RADL
+         || m_nalUnitType == NAL_UNIT_CODED_SLICE_IDR_N_LP;
+  }
+
+  Bool isBla()
+  {
+    return  m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_LP
+         || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_W_RADL
+         || m_nalUnitType == NAL_UNIT_CODED_SLICE_BLA_N_LP;
+  }
+
+  Bool isCra()
+  {
+   return  m_nalUnitType == NAL_UNIT_CODED_SLICE_CRA; 
+  }
+
+
+#endif
   Bool isSei()
   {
     return m_nalUnitType == NAL_UNIT_PREFIX_SEI
@@ -93,6 +138,12 @@ struct NALUnit
   {
     return ( (UInt)m_nalUnitType < 32 );
   }
+#if NH_MV
+  Void print( )
+  {
+    std::cout << "Type: " << NALU_TYPE_STR[m_nalUnitType] << " LayerId: " << m_nuhLayerId << " TemporalId: " << m_temporalId; 
+  }
+#endif
 };
 
 struct OutputNALUnit;

@@ -65,21 +65,42 @@ public:
   virtual ~TEncCavlc();
 
 protected:
+#if NH_MV
+  TEncTop*      m_encTop; 
+#endif
+
   Void codeShortTermRefPicSet              ( const TComReferencePictureSet* pcRPS, Bool calledFromSliceHeader, Int idx );
   Bool findMatchingLTRP ( TComSlice* pcSlice, UInt *ltrpsIndex, Int ltrpPOC, Bool usedFlag );
 
 public:
 
   Void  resetEntropy          (const TComSlice *pSlice);
-  SliceType determineCabacInitIdx  (const TComSlice *pSlice) { assert(0); return I_SLICE; };
+  SliceType determineCabacInitIdx  (const TComSlice* /*pSlice*/) { assert(0); return I_SLICE; };
 
   Void  setBitstream          ( TComBitIf* p )  { m_pcBitIf = p;  }
   Void  resetBits             ()                { m_pcBitIf->resetBits(); }
   UInt  getNumberOfWrittenBits()                { return  m_pcBitIf->getNumberOfWrittenBits();  }
   Void  codeVPS                 ( const TComVPS* pcVPS );
+#if NH_MV
+  Void  codeVPSExtension       ( const TComVPS *pcVPS );
+  Void  codeVideoSignalInfo    ( const TComVideoSignalInfo* pcVideoSignalInfo ); 
+
+  Void  codeDpbSize            ( const TComVPS* vps );
+
+  Void  codeRepFormat           ( Int i, const TComRepFormat* curRepFormat, const TComRepFormat* prevRepFormat );
+  Void  codeVPSVUI              ( const TComVPS* pcVPS );
+  Void  codeVpsVuiBspHrdParameters( const TComVPS* pcVPS ); 
+#endif 
+
   Void  codeVUI                 ( const TComVUI *pcVUI, const TComSPS* pcSPS );
+#if NH_MV
+  Void  codeSPSExtension        ( const TComSPS* pcSPS ); 
+#endif
   Void  codeSPS                 ( const TComSPS* pcSPS );
   Void  codePPS                 ( const TComPPS* pcPPS );
+#if NH_MV
+  Void  codePpsMultilayerExtension( const TComPPS* pcPPS );
+#endif
   Void  codeSliceHeader         ( TComSlice* pcSlice );
   Void  codePTL                 ( const TComPTL* pcPTL, Bool profilePresentFlag, Int maxNumSubLayersMinus1);
   Void  codeProfileTier         ( const ProfileTierLevel* ptl, const Bool bIsSubLayer );
@@ -89,13 +110,13 @@ public:
   Void  codeSliceFinish         ();
 
   Void codeMVPIdx ( TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList );
-  Void codeSAOBlkParam(SAOBlkParam& saoBlkParam, const BitDepths &bitDepths, Bool* sliceEnabled, Bool leftMergeAvail, Bool aboveMergeAvail, Bool onlyEstMergeInfo = false){printf("only supported in CABAC"); assert(0); exit(-1);}
+  Void codeSAOBlkParam(SAOBlkParam& /*saoBlkParam*/, const BitDepths& /*bitDepths*/, Bool* /*sliceEnabled*/, Bool /*leftMergeAvail*/, Bool /*aboveMergeAvail*/, Bool /*onlyEstMergeInfo*/ = false){printf("only supported in CABAC"); assert(0); exit(-1);}
   Void codeCUTransquantBypassFlag( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeSkipFlag      ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeMergeFlag     ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeMergeIndex    ( TComDataCU* pcCU, UInt uiAbsPartIdx );
 
-  Void codeAlfCtrlFlag   ( ComponentID component, UInt code ) {printf("Not supported\n"); assert(0);}
+  Void codeAlfCtrlFlag   ( ComponentID /*component*/, UInt /*code*/ ) {printf("Not supported\n"); assert(0);}
   Void codeInterModeFlag( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, UInt uiEncMode );
   Void codeSplitFlag     ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
 
@@ -108,7 +129,7 @@ public:
   Void codeQtCbf         ( TComTU &rTu, const ComponentID compID, const Bool lowestLevel );
   Void codeQtRootCbf     ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeQtCbfZero     ( TComTU &rTu, const ChannelType chType );
-  Void codeQtRootCbfZero ( TComDataCU* pcCU );
+  Void codeQtRootCbfZero ( );
   Void codeIntraDirLumaAng( TComDataCU* pcCU, UInt absPartIdx, Bool isMultiple);
   Void codeIntraDirChroma( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeInterDir      ( TComDataCU* pcCU, UInt uiAbsPartIdx );
@@ -129,10 +150,14 @@ public:
 
   Void codeScalingList  ( const TComScalingList &scalingList );
   Void xCodeScalingList ( const TComScalingList* scalingList, UInt sizeId, UInt listId);
-  Void codeDFFlag       ( UInt uiCode, const Char *pSymbolName );
-  Void codeDFSvlc       ( Int   iCode, const Char *pSymbolName );
 
   Void codeExplicitRdpcmMode( TComTU &rTu, const ComponentID compID );
+
+#if NH_MV
+  TEncTop* getEncTop()               { return m_encTop; };
+  Void     setEncTop( TEncTop* et )  {  m_encTop = et; };
+#endif
+
 };
 
 //! \}

@@ -55,9 +55,77 @@ class TAppEncCfg
 {
 protected:
   // file I/O
+#if NH_MV
+  std::vector<char*>     m_pchInputFileList;                  ///< source file names
+#else
   Char*     m_pchInputFile;                                   ///< source file name
+#endif
   Char*     m_pchBitstreamFile;                               ///< output bitstream file
+#if NH_MV
+  std::vector<char*>     m_pchReconFileList;                  ///< output reconstruction file names
+  Int                    m_numberOfLayers;                    ///< number of Layers to Encode
+  Int                    m_iNumberOfViews;                    ///< number of Layers that are views
+#else
   Char*     m_pchReconFile;                                   ///< output reconstruction file
+#endif
+  #if NH_MV
+// VPS specification
+  IntAry2d m_dimIds;                   ///< dimension ids ( pointers to m_viewId and m_depthFlag 
+  std::vector<Int>       m_viewId;                            ///< view id
+  std::vector<Int>       m_viewOrderIndex;                    ///< view order index  
+  std::vector<Int>       m_auxId;                             ///< auxiliary id
+  std::vector<Int>       m_targetEncLayerIdList;              ///< layer Ids in Nuh to be encoded
+  std::vector<Int>       m_layerIdInNuh;                      ///< layer Id in Nuh for each layer 
+  Bool                   m_splittingFlag;                     ///< Splitting Flag
+  Int                    m_scalabilityMask;                   ///< Mask indicating scalabilities, 1: texture; 3: texture + depth                                                                
+  std::vector<Int>       m_dimensionIdLen;                    ///< Length of scalability dimension s 
+  
+// layer sets   
+  Int                    m_vpsNumLayerSets;                   ///< Number of layer sets
+  IntAry2d m_layerIdsInSets;           ///< LayerIds in vps of layer set 
+  Int                    m_numAddLayerSets;                    ///< Number of additional layer sets
+  IntAry2d m_highestLayerIdxPlus1;      ///< HighestLayerIdxPlus1 for each additional layer set and each independent layer (value with index 0 will be ignored)
+  Int                    m_defaultOutputLayerIdc;             ///< Specifies output layers of layer sets, 0: output all layers, 1: output highest layers, 2: specified by LayerIdsInDefOuputLayerSet
+  std::vector<Int>       m_outputLayerSetIdx;                 ///< Indices of layer sets used as additional output layer sets  
+  IntAry2d m_layerIdsInAddOutputLayerSet; ///< LayerIds in vps of additional output layers
+  IntAry2d m_layerIdsInDefOutputLayerSet; ///< Indices in vps of output layers in layer sets
+  IntAry2d               m_profileTierLevelIdx;      ///< Indices of of profile, per layer in layer set
+  std::vector<Bool>      m_altOutputLayerFlag;                ///< Alt output layer flag
+
+  // Dependencies
+  IntAry2d m_directRefLayers;          ///< LayerIds of direct reference layers
+  IntAry2d m_dependencyTypes;          ///< Dependency types of direct reference layers
+
+  // VPS VUI
+  Bool m_vpsVuiPresentFlag;
+  Bool m_crossLayerPicTypeAlignedFlag;
+  Bool m_crossLayerIrapAlignedFlag;
+  Bool m_allLayersIdrAlignedFlag;
+  Bool m_bitRatePresentVpsFlag;
+  Bool m_picRatePresentVpsFlag;
+  std::vector< std::vector<Bool > > m_bitRatePresentFlag;
+  std::vector< std::vector<Bool > > m_picRatePresentFlag;
+  std::vector< std::vector<Int  > > m_avgBitRate;
+  std::vector< std::vector<Int  > > m_maxBitRate;
+  std::vector< std::vector<Int  > > m_constantPicRateIdc;
+  std::vector< std::vector<Int  > > m_avgPicRate;
+  Bool                              m_tilesNotInUseFlag; 
+  BoolAry1d               m_tilesInUseFlag;
+  BoolAry1d               m_loopFilterNotAcrossTilesFlag; 
+  Bool                              m_wppNotInUseFlag;
+  BoolAry1d               m_wppInUseFlag;
+
+  std::vector< std::vector<Bool > > m_tileBoundariesAlignedFlag;  
+  Bool m_ilpRestrictedRefLayersFlag;
+  std::vector< std::vector<Int  > > m_minSpatialSegmentOffsetPlus1;
+  std::vector< std::vector<Bool > > m_ctuBasedOffsetEnabledFlag;
+  std::vector< std::vector<Int  > > m_minHorizontalCtuOffsetPlus1;
+  Bool m_singleLayerForNonIrapFlag;
+  Bool m_higherLayerIrapSkipFlag;
+
+
+
+#endif
   Double    m_adLambdaModifier[ MAX_TLAYER ];                 ///< Lambda modifier array for each temporal layer
   // source specification
   Int       m_iFrameRate;                                     ///< source frame-rates (Hz)
@@ -69,6 +137,8 @@ protected:
 
   Bool      m_isField;                                        ///< enable field coding
   Bool      m_isTopFieldFirst;
+  Bool      m_bEfficientFieldIRAPEnabled;                     ///< enable an efficient field IRAP structure.
+  Bool      m_bHarmonizeGopFirstFieldCoupleEnabled;
 
   Int       m_conformanceWindowMode;
   Int       m_confWinLeft;
@@ -86,14 +156,24 @@ protected:
   Bool      m_printFrameMSE;
   Bool      m_printSequenceMSE;
   Bool      m_cabacZeroWordPaddingEnabled;
+  Bool      m_bClipInputVideoToRec709Range;
+  Bool      m_bClipOutputVideoToRec709Range;
 
   // profile/level
+#if NH_MV
+  std::vector< Profile::Name > m_profiles;
+  std::vector< Level::Tier   > m_levelTier;
+  std::vector< Level::Name   > m_level;
+  std::vector< Bool          > m_inblFlag; 
+#else
   Profile::Name m_profile;
   Level::Tier   m_levelTier;
   Level::Name   m_level;
+#endif
   UInt          m_bitDepthConstraint;
   ChromaFormat  m_chromaFormatConstraint;
   Bool          m_intraConstraintFlag;
+  Bool          m_onePictureOnlyConstraintFlag;
   Bool          m_lowerBitRateConstraintFlag;
   Bool m_progressiveSourceFlag;
   Bool m_interlacedSourceFlag;
@@ -101,35 +181,60 @@ protected:
   Bool m_frameOnlyConstraintFlag;
 
   // coding structure
+#if NH_MV
+  std::vector<Int> m_iIntraPeriod;                            ///< period of I-slice (random access period)
+#else
   Int       m_iIntraPeriod;                                   ///< period of I-slice (random access period)
+#endif
   Int       m_iDecodingRefreshType;                           ///< random access type
   Int       m_iGOPSize;                                       ///< GOP size of hierarchical structure
+#if NH_MV
+  Int       m_extraRPSsMvc[MAX_NUM_LAYERS];                       ///< extra RPSs added to handle CRA for each layer
+  std::vector< GOPEntry* >  m_GOPListMvc;                            ///< the coding structure entries from the config file for each layer 
+  Int       m_numReorderPicsMvc[MAX_NUM_LAYERS][MAX_TLAYER];      ///< total number of reorder pictures for each layer
+  Int       m_maxDecPicBufferingMvc[MAX_NUM_LAYERS][MAX_TLAYER];  ///< total number of reference pictures needed for decoding for each layer
+#else
   Int       m_extraRPSs;                                      ///< extra RPSs added to handle CRA
   GOPEntry  m_GOPList[MAX_GOP];                               ///< the coding structure entries from the config file
   Int       m_numReorderPics[MAX_TLAYER];                     ///< total number of reorder pictures
   Int       m_maxDecPicBuffering[MAX_TLAYER];                 ///< total number of pictures in the decoded picture buffer
-  Bool      m_useCrossComponentPrediction;                    ///< flag enabling the use of cross-component prediction
+  #endif
+  Bool      m_crossComponentPredictionEnabledFlag;                          ///< flag enabling the use of cross-component prediction
   Bool      m_reconBasedCrossCPredictionEstimate;             ///< causes the alpha calculation in encoder search to be based on the decoded residual rather than the pre-transform encoder-side residual
-  UInt      m_saoOffsetBitShift[MAX_NUM_CHANNEL_TYPE];        ///< number of bits for the upward bit shift operation on the decoded SAO offsets
+#if NH_MV
+  UInt      m_log2SaoOffsetScale[MAX_NUM_LAYERS][MAX_NUM_CHANNEL_TYPE];        ///< number of bits for the upward bit shift operation on the decoded SAO offsets
+#else
+  UInt      m_log2SaoOffsetScale[MAX_NUM_CHANNEL_TYPE];       ///< number of bits for the upward bit shift operation on the decoded SAO offsets
+#endif
   Bool      m_useTransformSkip;                               ///< flag for enabling intra transform skipping
   Bool      m_useTransformSkipFast;                           ///< flag for enabling fast intra transform skipping
-  UInt      m_transformSkipLog2MaxSize;                       ///< transform-skip maximum size (minimum of 2)
-  Bool      m_useResidualRotation;                            ///< control flag for transform-skip/transquant-bypass residual rotation
-  Bool      m_useSingleSignificanceMapContext;                ///< control flag for transform-skip/transquant-bypass single significance map context
-  Bool      m_useResidualDPCM[NUMBER_OF_RDPCM_SIGNALLING_MODES];///< control flags for residual DPCM
+  UInt      m_log2MaxTransformSkipBlockSize;                  ///< transform-skip maximum size (minimum of 2)
+  Bool      m_transformSkipRotationEnabledFlag;               ///< control flag for transform-skip/transquant-bypass residual rotation
+  Bool      m_transformSkipContextEnabledFlag;                ///< control flag for transform-skip/transquant-bypass single significance map context
+  Bool      m_rdpcmEnabledFlag[NUMBER_OF_RDPCM_SIGNALLING_MODES];///< control flags for residual DPCM
   Bool      m_enableAMP;
-  Bool      m_useGolombRiceParameterAdaptation;               ///< control flag for Golomb-Rice parameter adaptation over each slice
-  Bool      m_alignCABACBeforeBypass;
+  Bool      m_persistentRiceAdaptationEnabledFlag;            ///< control flag for Golomb-Rice parameter adaptation over each slice
+  Bool      m_cabacBypassAlignmentEnabledFlag;
 
   // coding quality
+#if NH_MV
+  std::vector<Double>  m_fQP;                                 ///< QP value of key-picture (floating point) for each layer
+  std::vector<Int>     m_iQP;                                 ///< QP value of key-picture (integer) for each layer
+#else
   Double    m_fQP;                                            ///< QP value of key-picture (floating point)
   Int       m_iQP;                                            ///< QP value of key-picture (integer)
+#endif
   Char*     m_pchdQPFile;                                     ///< QP offset for each slice (initialized from external file)
+#if NH_MV
+  std::vector<Int*> m_aidQP;                                    ///< array of slice QP values for each layer
+#else
   Int*      m_aidQP;                                          ///< array of slice QP values
+#endif
   Int       m_iMaxDeltaQP;                                    ///< max. |delta QP|
   UInt      m_uiDeltaQpRD;                                    ///< dQP range for multi-pass slice QP optimization
   Int       m_iMaxCuDQPDepth;                                 ///< Max. depth for a minimum CuDQPSize (0:default)
-  Int       m_maxCUChromaQpAdjustmentDepth;
+  Int       m_diffCuChromaQpOffsetDepth;                      ///< If negative, then do not apply chroma qp offsets.
+  Bool      m_bFastDeltaQP;                                   ///< Fast Delta QP (false:default)
 
   Int       m_cbQpOffset;                                     ///< Chroma Cb QP Offset (0:default)
   Int       m_crQpOffset;                                     ///< Chroma Cr QP Offset (0:default)
@@ -142,7 +247,11 @@ protected:
   Bool      m_bUseAdaptiveQP;                                 ///< Flag for enabling QP adaptation based on a psycho-visual model
   Int       m_iQPAdaptationRange;                             ///< dQP range by QP adaptation
 
+#if NH_MV
+  Int       m_maxTempLayerMvc[MAX_NUM_LAYER_IDS];             ///< Max temporal layer for each layer
+#else
   Int       m_maxTempLayer;                                  ///< Max temporal layer
+#endif
 
   // coding unit (CU) definition
   // TODO: Remove MaxCUWidth/MaxCUHeight and replace with MaxCUSize.
@@ -164,8 +273,8 @@ protected:
   Int       m_outputBitDepth  [MAX_NUM_CHANNEL_TYPE];         ///< bit-depth of output file
   Int       m_MSBExtendedBitDepth[MAX_NUM_CHANNEL_TYPE];      ///< bit-depth of input samples after MSB extension
   Int       m_internalBitDepth[MAX_NUM_CHANNEL_TYPE];         ///< bit-depth codec operates at (input/output files will be converted)
-  Bool      m_useExtendedPrecision;
-  Bool      m_useHighPrecisionPredictionWeighting;
+  Bool      m_extendedPrecisionProcessingFlag;
+  Bool      m_highPrecisionOffsetsEnabledFlag;
 
   //coding tools (chroma format)
   ChromaFormat m_chromaFormatIDC;
@@ -174,15 +283,25 @@ protected:
   Bool      m_bPCMInputBitDepthFlag;                          ///< 0: PCM bit-depth is internal bit-depth. 1: PCM bit-depth is input bit-depth.
 
   // coding tool (SAO)
+#if NH_MV
+  std::vector<Bool> m_bUseSAO; 
+#else
   Bool      m_bUseSAO;
+#endif
+  Bool      m_bTestSAODisableAtPictureLevel;
+  Double    m_saoEncodingRate;                                ///< When >0 SAO early picture termination is enabled for luma and chroma
+  Double    m_saoEncodingRateChroma;                          ///< The SAO early picture termination rate to use for chroma (when m_SaoEncodingRate is >0). If <=0, use results for luma.
   Int       m_maxNumOffsetsPerPic;                            ///< SAO maximun number of offset per picture
   Bool      m_saoCtuBoundary;                                 ///< SAO parameter estimation using non-deblocked pixels for CTU bottom and right boundary areas
   // coding tools (loop filter)
+#if NH_MV
+  std::vector<Bool> m_bLoopFilterDisable;                     ///< flag for using deblocking filter for each layer
+#else
   Bool      m_bLoopFilterDisable;                             ///< flag for using deblocking filter
+#endif
   Bool      m_loopFilterOffsetInPPS;                         ///< offset for deblocking filter in 0 = slice header, 1 = PPS
   Int       m_loopFilterBetaOffsetDiv2;                     ///< beta offset for deblocking filter
   Int       m_loopFilterTcOffsetDiv2;                       ///< tc offset for deblocking filter
-  Bool      m_DeblockingFilterControlPresent;                 ///< deblocking filter control present flag in PPS
   Bool      m_DeblockingFilterMetric;                         ///< blockiness metric in encoder
 
   // coding tools (PCM)
@@ -201,9 +320,16 @@ protected:
   Bool      m_useSelectiveRDOQ;                               ///< flag for using selective RDOQ
 #endif
   Int       m_rdPenalty;                                      ///< RD-penalty for 32x32 TU for intra in non-intra slices (0: no RD-penalty, 1: RD-penalty, 2: maximum RD-penalty)
+  Bool      m_bDisableIntraPUsInInterSlices;                  ///< Flag for disabling intra predicted PUs in inter slices.
   Int       m_iFastSearch;                                    ///< ME mode, 0 = full, 1 = diamond, 2 = PMVFAST
   Int       m_iSearchRange;                                   ///< ME search range
   Int       m_bipredSearchRange;                              ///< ME search range for bipred refinement
+  Bool      m_bClipForBiPredMeEnabled;                        ///< Enables clipping for Bi-Pred ME.
+  Bool      m_bFastMEAssumingSmootherMVEnabled;               ///< Enables fast ME assuming a smoother MV.
+#if NH_MV
+  Bool      m_bUseDisparitySearchRangeRestriction;            ///< restrict vertical search range for inter-view prediction
+  Int       m_iVerticalDisparitySearchRange;                  ///< ME vertical search range for inter-view prediction
+#endif
   Bool      m_bUseFastEnc;                                    ///< flag for using fast encoder setting
   Bool      m_bUseEarlyCU;                                    ///< flag for using Early CU setting
   Bool      m_useFastDecisionForMerge;                        ///< flag for using Fast Decision Merge RD-Cost
@@ -227,6 +353,9 @@ protected:
   Int       m_iWaveFrontFlush; //< enable(1)/disable(0) the CABAC flush at the end of each line of LCUs.
 
   Bool      m_bUseConstrainedIntraPred;                       ///< flag for using constrained intra prediction
+  Bool      m_bFastUDIUseMPMEnabled;
+  Bool      m_bFastMEForGenBLowDelayEnabled;
+  Bool      m_bUseBLambdaForNonKeyLowDelayPictures;
 
   Int       m_decodedPictureHashSEIEnabled;                    ///< Checksum(3)/CRC(2)/MD5(1)/disable(0) acting on decoded picture hash SEI message
   Int       m_recoveryPointSEIEnabled;
@@ -309,7 +438,9 @@ protected:
   Bool      m_RCUseLCUSeparateModel;              ///< use separate R-lambda model at LCU level                        NOTE: code-tidy - rename to m_RCUseCtuSeparateModel
   Int       m_RCInitialQP;                        ///< inital QP for rate control
   Bool      m_RCForceIntraQP;                     ///< force all intra picture to use initial QP or not
-  ScalingListMode m_useScalingListId;                         ///< using quantization matrix
+  
+
+ScalingListMode m_useScalingListId;                         ///< using quantization matrix
   Char*     m_scalingListFile;                                ///< quantization matrix file name
 
   Bool      m_TransquantBypassEnableFlag;                     ///< transquant_bypass_enable_flag setting in PPS.
@@ -354,11 +485,108 @@ protected:
   Int       m_maxBitsPerMinCuDenom;                           ///< Indicates an upper bound for the number of bits of coding_unit() data
   Int       m_log2MaxMvLengthHorizontal;                      ///< Indicate the maximum absolute value of a decoded horizontal MV component in quarter-pel luma units
   Int       m_log2MaxMvLengthVertical;                        ///< Indicate the maximum absolute value of a decoded vertical MV component in quarter-pel luma units
-
+  std::string m_summaryOutFilename;                           ///< filename to use for producing summary output file.
+  std::string m_summaryPicFilenameBase;                       ///< Base filename to use for producing summary picture output files. The actual filenames used will have I.txt, P.txt and B.txt appended.
+  UInt        m_summaryVerboseness;                           ///< Specifies the level of the verboseness of the text output.
+#if NH_MV
+  Bool              m_subBistreamPropSEIEnabled;
+  Int               m_sbPropNumAdditionalSubStreams;
+  std::vector<Int>  m_sbPropSubBitstreamMode;
+  std::vector<Int>  m_sbPropOutputLayerSetIdxToVps;
+  std::vector<Int>  m_sbPropHighestSublayerId;
+  std::vector<Int>  m_sbPropAvgBitRate;
+  std::vector<Int>  m_sbPropMaxBitRate;
+  Bool              m_outputVpsInfo;
+#endif
   // internal member functions
   Void  xCheckParameter ();                                   ///< check validity of configuration values
   Void  xPrintParameter ();                                   ///< print configuration values
   Void  xPrintUsage     ();                                   ///< print usage
+#if NH_MV
+
+  template<typename T>
+  Void xReadStrToEnum(string in, std::vector<T> &val)
+  {
+    val.clear(); 
+
+    char* cElement = NULL;
+    char* cString = new char[in.size()+1];
+    strcpy(cString, in.c_str());
+
+    cElement = strtok( cString, " " );
+    while ( cElement != NULL )
+    {
+      T profile;       
+      std::istringstream ss( cElement ); 
+      ss >> profile; 
+      val.push_back( profile ); 
+      cElement = strtok( NULL, " " );
+    }
+    delete[] cString;
+  }
+
+
+  template <typename T>
+  Void xResizeVector(  std::vector<T> & rpcVector )
+  {
+    for( Int layer = 0; rpcVector.size() < m_numberOfLayers; layer++ )
+    {
+      assert( rpcVector.size() > 0 );
+      rpcVector.push_back( rpcVector[layer] );      
+    }
+
+    for( ; rpcVector.size() > m_numberOfLayers; )
+    {      
+      rpcVector.pop_back( );      
+    }
+  }
+
+  template <typename T>
+  Void xResizeVector(  std::vector<T> & rpcVector, UInt n )
+  {
+    for( Int layer = 0; rpcVector.size() < n; layer++ )
+    {
+      assert( rpcVector.size() > 0 );
+      rpcVector.push_back( rpcVector[layer] );      
+    }
+
+    for( ; rpcVector.size() > n; )
+    {      
+      rpcVector.pop_back( );      
+    }
+  }
+
+
+  template <typename T>
+  Void xPrintParaVector( std::string description, std::vector<T> & rpcVector )
+  {
+    Int iSpace = max(1, ENC_CFG_CONSOUT_SPACE - (Int) description.length() ); 
+    
+    for ( Int i = 0; i < iSpace; i++ )
+    {
+      description.append( " " ); 
+    }
+      
+    description.append( ":" ); 
+    printf( "%s", description.c_str() ); 
+
+    for(Int i=0;i<rpcVector.size();i++)
+    {
+      xPrintVectorElem( rpcVector[i] );
+    }
+
+    printf("\n");
+  }
+  
+  Void xPrintVectorElem( UInt   elem ) { printf(" %d"   , elem            );};
+  Void xPrintVectorElem( Int    elem ) { printf(" %d"   , elem            );};
+  
+  Void xPrintVectorElem( Double elem ) { printf(" %5.2f", elem            );};  
+  Void xPrintVectorElem( Bool   elem ) { printf(" %d"   , ( elem ? 1 : 0 ));};
+#endif
+#if NH_MV
+  Int   getGOPSize() { return m_iGOPSize; }
+#endif
 public:
   TAppEncCfg();
   virtual ~TAppEncCfg();

@@ -53,7 +53,6 @@ class TComMv
 private:
   Short m_iHor;     ///< horizontal component of motion vector
   Short m_iVer;     ///< vertical component of motion vector
-
 public:
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -79,8 +78,8 @@ public:
   Void  set       ( Short iHor, Short iVer)     { m_iHor = iHor;  m_iVer = iVer;            }
   Void  setHor    ( Short i )                   { m_iHor = i;                               }
   Void  setVer    ( Short i )                   { m_iVer = i;                               }
-  Void  setZero   ()                            { m_iHor = m_iVer = 0;  }
-
+  Void  setZero   ()                            { m_iHor = m_iVer = 0; 
+ }
   // ------------------------------------------------------------------------------------------------------------------
   // get
   // ------------------------------------------------------------------------------------------------------------------
@@ -89,7 +88,6 @@ public:
   Int   getVer    () const { return m_iVer;          }
   Int   getAbsHor () const { return abs( m_iHor );   }
   Int   getAbsVer () const { return abs( m_iVer );   }
-
   // ------------------------------------------------------------------------------------------------------------------
   // operations
   // ------------------------------------------------------------------------------------------------------------------

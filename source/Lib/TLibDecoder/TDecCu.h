@@ -61,6 +61,7 @@ private:
   TComYuv**           m_ppcYuvReco;       ///< array of prediction & reconstruction buffer
   TComDataCU**        m_ppcCU;            ///< CU data array
 
+  
   // access channel
   TComTrQuant*        m_pcTrQuant;
   TComPrediction*     m_pcPrediction;
@@ -97,6 +98,7 @@ protected:
 
   Void xReconInter              ( TComDataCU* pcCU, UInt uiDepth );
 
+  
   Void xReconIntraQT            ( TComDataCU* pcCU, UInt uiDepth );
   Void xIntraRecBlk             ( TComYuv* pcRecoYuv, TComYuv* pcPredYuv, TComYuv* pcResiYuv, const ComponentID component, TComTU &rTu );
   Void xIntraRecQT              ( TComYuv* pcRecoYuv, TComYuv* pcPredYuv, TComYuv* pcResiYuv, const ChannelType chType, TComTU &rTu );
@@ -114,6 +116,8 @@ protected:
   Void setIsChromaQpAdjCoded    ( Bool b )                { m_IsChromaQpAdjCoded = b;           }
 
   Void xFillPCMBuffer           (TComDataCU* pCU, UInt depth);
+
+
 };
 
 //! \}

@@ -103,7 +103,7 @@ static inline Void output_sei_message_header(SEI &sei, std::ostream *pDecodedMes
   if (pDecodedMessageOutputStream)
   {
     std::string seiMessageHdr(SEI::getSEIMessageString(sei.payloadType())); seiMessageHdr+=" SEI message";
-    (*pDecodedMessageOutputStream) << std::setfill('-') << std::setw(seiMessageHdr.size()) << "-" << std::setfill(' ') << "\n" << seiMessageHdr << "\n";
+    (*pDecodedMessageOutputStream) << std::setfill('-') << std::setw(seiMessageHdr.size()) << "-" << std::setfill(' ') << "\n" << seiMessageHdr << " (" << payloadSize << " bytes)"<< "\n";
   }
 }
 
@@ -131,9 +131,7 @@ Void SEIReader::parseSEImessage(TComInputBitstream* bs, SEIMessages& seis, const
   }
   while (m_pcBitstream->getNumBitsLeft() > 8);
 
-  UInt rbspTrailingBits;
-  sei_read_code(NULL, 8, rbspTrailingBits, "rbsp_trailing_bits");
-  assert(rbspTrailingBits == 0x80);
+  xReadRbspTrailingBits();
 }
 
 Void SEIReader::xReadSEImessage(SEIMessages& seis, const NalUnitType nalUnitType, const TComSPS *sps, std::ostream *pDecodedMessageOutputStream)
@@ -278,6 +276,12 @@ Void SEIReader::xReadSEImessage(SEIMessages& seis, const NalUnitType nalUnitType
       sei = new SEIMasteringDisplayColourVolume;
       xParseSEIMasteringDisplayColourVolume((SEIMasteringDisplayColourVolume&) *sei, payloadSize, pDecodedMessageOutputStream);
       break;
+#if NH_MV
+    case SEI::SUB_BITSTREAM_PROPERTY:
+      sei = new SEISubBitstreamProperty;
+      xParseSEISubBitstreamProperty((SEISubBitstreamProperty&) *sei, payloadSize, pDecodedMessageOutputStream );
+      break;
+#endif
     default:
       for (UInt i = 0; i < payloadSize; i++)
       {
@@ -364,7 +368,6 @@ Void SEIReader::xReadSEImessage(SEIMessages& seis, const NalUnitType nalUnitType
   }
 
   /* restore primary bitstream for sei_message */
-  getBitstream()->deleteFifo();
   delete getBitstream();
   setBitstream(bs);
 }
@@ -851,6 +854,36 @@ Void SEIReader::xParseSEIScalableNesting(SEIScalableNesting& sei, const NalUnitT
     (*pDecodedMessageOutputStream) << "End of scalable nesting SEI message\n";
   }
 }
+
+#if NH_MV
+Void SEIReader::xParseSEISubBitstreamProperty(SEISubBitstreamProperty &sei, UInt payloadSize, std::ostream *pDecodedMessageOutputStream )
+{
+  UInt code;
+  output_sei_message_header(sei, pDecodedMessageOutputStream, payloadSize);
+  sei_read_code( pDecodedMessageOutputStream, 4, code, "active_vps_id" );                      sei.m_activeVpsId = code;
+  sei_read_uvlc( pDecodedMessageOutputStream, code, "num_additional_sub_streams_minus1" );     sei.m_numAdditionalSubStreams = code + 1;
+
+  xResizeSubBitstreamPropertySeiArrays(sei);
+  for( Int i = 0; i < sei.m_numAdditionalSubStreams; i++ )
+  {
+    sei_read_code( pDecodedMessageOutputStream,   2, code, "sub_bitstream_mode[i]"           ); sei.m_subBitstreamMode[i] = code;
+    sei_read_uvlc( pDecodedMessageOutputStream,  code, "output_layer_set_idx_to_vps[i]"      ); sei.m_outputLayerSetIdxToVps[i] = code;
+    sei_read_code( pDecodedMessageOutputStream,   3, code, "highest_sub_layer_id[i]"         ); sei.m_highestSublayerId[i] = code;
+    sei_read_code( pDecodedMessageOutputStream,  16, code, "avg_bit_rate[i]"                 ); sei.m_avgBitRate[i] = code;
+    sei_read_code( pDecodedMessageOutputStream,  16, code, "max_bit_rate[i]"                 ); sei.m_maxBitRate[i] = code;
+  }  
+}
+
+Void SEIReader::xResizeSubBitstreamPropertySeiArrays(SEISubBitstreamProperty &sei)
+{
+  sei.m_subBitstreamMode.resize( sei.m_numAdditionalSubStreams );
+  sei.m_outputLayerSetIdxToVps.resize( sei.m_numAdditionalSubStreams );
+  sei.m_highestSublayerId.resize( sei.m_numAdditionalSubStreams );
+  sei.m_avgBitRate.resize( sei.m_numAdditionalSubStreams );
+  sei.m_maxBitRate.resize( sei.m_numAdditionalSubStreams );
+}
+#endif
+
 
 Void SEIReader::xParseSEITempMotionConstraintsTileSets(SEITempMotionConstrainedTileSets& sei, UInt payloadSize, std::ostream *pDecodedMessageOutputStream)
 {

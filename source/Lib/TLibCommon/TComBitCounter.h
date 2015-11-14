@@ -64,6 +64,8 @@ public:
   Void        write                 ( UInt /*uiBits*/, UInt uiNumberOfBits )  { m_uiBitCounter += uiNumberOfBits; }
   Void        resetBits             ()                                    { m_uiBitCounter = 0;               }
   UInt getNumberOfWrittenBits() const { return m_uiBitCounter; }
+  Int         getNumBitsUntilByteAligned() const                              { return (8 - m_uiBitCounter) & 0x7;}
+
 };
 
 //! \}

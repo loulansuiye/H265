@@ -89,6 +89,8 @@ Void TComPicYuv::create ( const Int iPicWidth,                ///< picture width
 {
   m_iPicWidth         = iPicWidth;
   m_iPicHeight        = iPicHeight;
+
+
   m_chromaFormatIDC   = chromaFormatIDC;
   m_iMarginX          = (bUseMargin?uiMaxCUWidth:0) + 16;   // for 16-byte alignment
   m_iMarginY          = (bUseMargin?uiMaxCUHeight:0) + 16;  // margin for 8-tap filter and infinite padding

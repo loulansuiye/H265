@@ -210,7 +210,7 @@ Void SEIEncoder::initSEISOPDescription(SEISOPDescription *sopDescriptionSEI, TCo
       sopCurrPOC += deltaPOC;
       sopDescriptionSEI->m_sopDescVclNaluType[i] = m_pcEncGOP->getNalUnitType(sopCurrPOC, lastIdr, slice->getPic()->isField());
       sopDescriptionSEI->m_sopDescTemporalId[i] = m_pcCfg->getGOPEntry(j).m_temporalId;
-      sopDescriptionSEI->m_sopDescStRpsIdx[i] = m_pcEncTop->getReferencePictureSetIdxForSOP(slice, sopCurrPOC, j);
+      sopDescriptionSEI->m_sopDescStRpsIdx[i] = m_pcEncTop->getReferencePictureSetIdxForSOP(sopCurrPOC, j);
       sopDescriptionSEI->m_sopDescPocDelta[i] = deltaPOC;
 
       prevEntryId = j;
@@ -397,7 +397,7 @@ Void SEIEncoder::initSEIKneeFunctionInfo(SEIKneeFunctionInfo *seiKneeFunctionInf
   }
 }
 
-Void SEIEncoder::initSEIChromaSamplingFilterHint(SEIChromaSamplingFilterHint *seiChromaSamplingFilterHint, Bool bChromaLocInfoPresent, Int iHorFilterIndex, Int iVerFilterIndex)
+Void SEIEncoder::initSEIChromaSamplingFilterHint(SEIChromaSamplingFilterHint *seiChromaSamplingFilterHint, Int iHorFilterIndex, Int iVerFilterIndex)
 {
   assert (m_isInitialized);
   assert (seiChromaSamplingFilterHint!=NULL);
@@ -462,5 +462,19 @@ Void SEIEncoder::initSEITimeCode(SEITimeCode *seiTimeCode)
     seiTimeCode->timeSetArray[i] = m_pcCfg->getTimeSet(i);
   }
 }
+
+#if NH_MV
+Void SEIEncoder::initSEISubBitstreamProperty(SEISubBitstreamProperty *seiSubBitstreamProperty, const TComSPS *sps)
+{
+  seiSubBitstreamProperty->m_activeVpsId = sps->getVPSId();
+  /* These values can be determined by the encoder; for now we will use the input parameter */  
+  seiSubBitstreamProperty->m_numAdditionalSubStreams = m_pcCfg->getNumAdditionalSubStreams();
+  seiSubBitstreamProperty->m_subBitstreamMode        = m_pcCfg->getSubBitstreamMode();
+  seiSubBitstreamProperty->m_outputLayerSetIdxToVps  = m_pcCfg->getOutputLayerSetIdxToVps();
+  seiSubBitstreamProperty->m_highestSublayerId       = m_pcCfg->getHighestSublayerId();
+  seiSubBitstreamProperty->m_avgBitRate              = m_pcCfg->getAvgBitRate();
+  seiSubBitstreamProperty->m_maxBitRate              = m_pcCfg->getMaxBitRate();  
+}
+#endif
 
 //! \}

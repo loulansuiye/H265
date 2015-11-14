@@ -148,6 +148,9 @@ const Char *SEI::getSEIMessageString(SEI::PayloadType payloadType)
     case SEI::SEGM_RECT_FRAME_PACKING:              return "Segmented rectangular frame packing arrangement";
     case SEI::TEMP_MOTION_CONSTRAINED_TILE_SETS:    return "Temporal motion constrained tile sets";
     case SEI::CHROMA_SAMPLING_FILTER_HINT:          return "Chroma sampling filter hint";
+#if NH_MV
+    case SEI::SUB_BITSTREAM_PROPERTY:               return "Sub-bitstream property SEI message";      
+#endif
     default:                                        return "Unknown";
   }
 }

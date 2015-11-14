@@ -81,6 +81,7 @@ private:
 //  TComPatternParam  m_cPatternCb;
   //TComPatternParam  m_cPatternCr;
 
+
 public:
 
   // ROI & pattern information, (ROI = &pattern[AboveOffset][LeftOffset])
@@ -89,6 +90,7 @@ public:
   Int   getROIYHeight()           { return m_cPatternY.m_iROIHeight;      }
   Int   getPatternLStride()       { return m_cPatternY.m_iPatternStride;  }
   Int   getBitDepthY()            { return m_cPatternY.m_bitDepth; }
+
 
   // -------------------------------------------------------------------------------------------------------------------
   // initialization functions

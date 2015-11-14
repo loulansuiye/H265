@@ -55,7 +55,19 @@ Void  SyntaxElementParser::xReadCodeTr           (UInt length, UInt& rValue, con
 #else
   xReadCode (length, rValue);
 #endif
-  fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#if H_MV_ENC_DEC_TRAC
+  if ( g_disableHLSTrace || !g_HLSTraceEnable )
+  {
+    return; 
+  }
+  if ( !g_disableNumbering )
+  {
+    incSymbolCounter();
+    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+  }
+#else
+    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
   if (length < 10)
   {
     fprintf( g_hTrace, "%-50s u(%d)  : %u\n", pSymbolName, length, rValue );
@@ -74,7 +86,19 @@ Void  SyntaxElementParser::xReadUvlcTr           (UInt& rValue, const Char *pSym
 #else
   xReadUvlc (rValue);
 #endif
+#if H_MV_ENC_DEC_TRAC
+  if ( g_disableHLSTrace || !g_HLSTraceEnable )
+  {
+    return; 
+  }
+  if ( !g_disableNumbering )
+  {
+  incSymbolCounter();
+  fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+  }
+#else
   fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
   fprintf( g_hTrace, "%-50s ue(v) : %u\n", pSymbolName, rValue );
   fflush ( g_hTrace );
 }
@@ -86,7 +110,19 @@ Void  SyntaxElementParser::xReadSvlcTr           (Int& rValue, const Char *pSymb
 #else
   xReadSvlc (rValue);
 #endif
-  fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#if H_MV_ENC_DEC_TRAC
+  if ( g_disableHLSTrace || !g_HLSTraceEnable )
+  {
+    return; 
+  }
+  if ( !g_disableNumbering )
+  {  
+    incSymbolCounter();
+    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+  }
+#else
+    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
   fprintf( g_hTrace, "%-50s se(v) : %d\n", pSymbolName, rValue );
   fflush ( g_hTrace );
 }
@@ -98,9 +134,31 @@ Void  SyntaxElementParser::xReadFlagTr           (UInt& rValue, const Char *pSym
 #else
   xReadFlag (rValue);
 #endif
+#if H_MV_ENC_DEC_TRAC
+  if ( g_disableHLSTrace || !g_HLSTraceEnable )
+  {
+    return; 
+  }
+  if ( !g_disableNumbering )
+  {
+    incSymbolCounter(); 
+    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+  }
+#else
   fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
   fprintf( g_hTrace, "%-50s u(1)  : %d\n", pSymbolName, rValue );
   fflush ( g_hTrace );
+}
+
+Void  xTraceAccessUnitDelimiter ()
+{
+  fprintf( g_hTrace, "=========== Access Unit Delimiter ===========\n");
+}
+
+Void xTraceFillerData ()
+{
+  fprintf( g_hTrace, "=========== Filler Data ===========\n");
 }
 
 #endif
@@ -209,6 +267,51 @@ Void SyntaxElementParser::xReadFlag (UInt& ruiCode)
   TComCodingStatistics::IncrementStatisticEP(pSymbolName, 1, Int(ruiCode));
 #endif
 }
+
+Void SyntaxElementParser::xReadRbspTrailingBits()
+{
+  UInt bit;
+  READ_FLAG( bit, "rbsp_stop_one_bit");
+  assert (bit==1);
+  Int cnt = 0;
+  while (m_pcBitstream->getNumBitsUntilByteAligned())
+  {
+    READ_FLAG( bit, "rbsp_alignment_zero_bit");
+    assert (bit==0);
+    cnt++;
+  }
+  assert(cnt<8);
+}
+
+Void AUDReader::parseAccessUnitDelimiter(TComInputBitstream* bs, UInt &picType)
+{
+  setBitstream(bs);
+
+#if ENC_DEC_TRACE
+  xTraceAccessUnitDelimiter();
+#endif
+
+  READ_CODE (3, picType, "pic_type");
+  xReadRbspTrailingBits();
+}
+
+Void FDReader::parseFillerData(TComInputBitstream* bs, UInt &fdSize)
+{
+  setBitstream(bs);
+#if ENC_DEC_TRACE
+  xTraceFillerData();
+#endif
+  UInt ffByte;
+  fdSize = 0;
+  while( m_pcBitstream->getNumBitsLeft() >8 )
+  {
+    READ_CODE (8, ffByte, "ff_byte");
+    assert (ffByte==0xff);
+    fdSize++;
+  }
+  xReadRbspTrailingBits();
+}
+
 
 //! \}
 

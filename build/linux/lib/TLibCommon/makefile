@@ -63,6 +63,7 @@ OBJS          	= \
 			$(OBJ_DIR)/TComTU.o \
 			$(OBJ_DIR)/TComInterpolationFilter.o \
 			$(OBJ_DIR)/libmd5.o \
+			$(OBJ_DIR)/TComWedgelet.o \
 			$(OBJ_DIR)/TComWeightPrediction.o \
 			$(OBJ_DIR)/TComRdCostWeightPrediction.o \
 

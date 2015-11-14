@@ -49,7 +49,7 @@ public:
   SEIWriter() {};
   virtual ~SEIWriter() {};
 
-  Void writeSEImessages(TComBitIf& bs, const SEIMessages &seiList, const TComSPS *sps);
+  Void writeSEImessages(TComBitIf& bs, const SEIMessages &seiList, const TComSPS *sps, Bool isNested);
 
 protected:
   Void xWriteSEIpayloadData(TComBitIf& bs, const SEI& sei, const TComSPS *sps);
@@ -70,12 +70,16 @@ protected:
   Void xWriteSEIToneMappingInfo(const SEIToneMappingInfo& sei);
   Void xWriteSEISOPDescription(const SEISOPDescription& sei);
   Void xWriteSEIScalableNesting(TComBitIf& bs, const SEIScalableNesting& sei, const TComSPS *sps);
-  Void xWriteSEITempMotionConstrainedTileSets(TComBitIf& bs, const SEITempMotionConstrainedTileSets& sei);
+#if NH_MV
+  Void xWriteSEISubBitstreamProperty(const SEISubBitstreamProperty &sei);
+#endif
+  Void xWriteSEITempMotionConstrainedTileSets(const SEITempMotionConstrainedTileSets& sei);
   Void xWriteSEITimeCode(const SEITimeCode& sei);
   Void xWriteSEIChromaSamplingFilterHint(const SEIChromaSamplingFilterHint& sei/*, TComSPS *sps*/);
   Void writeUserDefinedCoefficients(const SEIChromaSamplingFilterHint& sei);
   Void xWriteSEIKneeFunctionInfo(const SEIKneeFunctionInfo &sei);
   Void xWriteSEIMasteringDisplayColourVolume( const SEIMasteringDisplayColourVolume& sei);
+
   Void xWriteByteAlign();
 };
 

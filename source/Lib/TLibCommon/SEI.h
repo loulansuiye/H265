@@ -39,9 +39,8 @@
 #include <vector>
 #include <cstring>
 
-#include "TypeDef.h"
+#include "CommonDef.h"
 #include "libmd5/MD5.h"
-
 //! \ingroup TLibCommon
 //! \{
 class TComSPS;
@@ -84,6 +83,10 @@ public:
     TEMP_MOTION_CONSTRAINED_TILE_SETS    = 139,
     CHROMA_SAMPLING_FILTER_HINT          = 140,
     KNEE_FUNCTION_INFO                   = 141
+#if NH_MV
+    ,SUB_BITSTREAM_PROPERTY              = 164
+#endif
+
   };
 
   SEI() {}
@@ -467,6 +470,25 @@ public:
     
     TComSEIMasteringDisplay values;
 };
+
+#if NH_MV
+class SEISubBitstreamProperty : public SEI
+{
+public:
+  PayloadType payloadType() const { return SUB_BITSTREAM_PROPERTY; }
+
+  SEISubBitstreamProperty():   m_activeVpsId(-1), m_numAdditionalSubStreams(0) {}
+  virtual ~SEISubBitstreamProperty() {}
+
+  Int  m_activeVpsId;
+  Int  m_numAdditionalSubStreams;
+  std::vector<Int>  m_subBitstreamMode;
+  std::vector<Int>  m_outputLayerSetIdxToVps;
+  std::vector<Int>  m_highestSublayerId;
+  std::vector<Int>  m_avgBitRate;
+  std::vector<Int>  m_maxBitRate;
+};
+#endif
 
 typedef std::list<SEI*> SEIMessages;
 

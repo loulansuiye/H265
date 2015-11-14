@@ -58,6 +58,22 @@ class TAppEncTop : public TAppEncCfg
 {
 private:
   // class interface
+#if NH_MV
+  std::vector<TEncTop*>      m_acTEncTopList ;              ///< encoder class per layer 
+  std::vector<TVideoIOYuv*>  m_acTVideoIOYuvInputFileList;  ///< input YUV file
+  std::vector<TVideoIOYuv*>  m_acTVideoIOYuvReconFileList;  ///< output reconstruction file
+  
+  std::vector<TComList<TComPicYuv*>*>  m_cListPicYuvRec;         ///< list of reconstruction YUV files
+
+  std::vector<Int>           m_frameRcvd;                   ///< number of received frames 
+
+  TComPicLists               m_ivPicLists;                  ///< picture buffers of encoder instances
+#if NH_MV
+  TComVPS*                   m_vps;                         ///< vps
+#else
+  TComVPS                    m_vps;                         ///< vps
+#endif
+#else
   TEncTop                    m_cTEncTop;                    ///< encoder class
   TVideoIOYuv                m_cTVideoIOYuvInputFile;       ///< input YUV file
   TVideoIOYuv                m_cTVideoIOYuvReconFile;       ///< output reconstruction file
@@ -65,10 +81,11 @@ private:
   TComList<TComPicYuv*>      m_cListPicYuvRec;              ///< list of reconstruction YUV files
 
   Int                        m_iFrameRcvd;                  ///< number of received frames
+#endif
+
 
   UInt m_essentialBytes;
   UInt m_totalBytes;
-
 protected:
   // initialization
   Void  xCreateLib        ();                               ///< create files & encoder class
@@ -77,24 +94,57 @@ protected:
   Void  xDestroyLib       ();                               ///< destroy encoder class
 
   /// obtain required buffers
+#if NH_MV
+  Void  xGetBuffer(TComPicYuv*& rpcPicYuvRec, UInt layer);
+#else
   Void xGetBuffer(TComPicYuv*& rpcPicYuvRec);
+#endif
 
   /// delete allocated buffers
   Void  xDeleteBuffer     ();
 
   // file I/O
+#if NH_MV
+  Void xWriteOutput(std::ostream& bitstreamFile, Int iNumEncoded, std::list<AccessUnit>& accessUnits, UInt layerId); ///< write bitstream to file
+#else
   Void xWriteOutput(std::ostream& bitstreamFile, Int iNumEncoded, const std::list<AccessUnit>& accessUnits); ///< write bitstream to file
+#endif
   Void rateStatsAccum(const AccessUnit& au, const std::vector<UInt>& stats);
   Void printRateSummary();
   Void printChromaFormat();
+
+#if NH_MV
+  Void xSetTimingInfo             ( TComVPS& vps );
+  Void xSetHrdParameters          ( TComVPS& vps );
+  Void xSetLayerIds               ( TComVPS& vps );  
+  Void xSetDimensionIdAndLength   ( TComVPS& vps );
+  Void xSetDependencies           ( TComVPS& vps );
+  Void xSetLayerSets              ( TComVPS& vps );
+  Void xSetProfileTierLevel       ( TComVPS& vps );
+
+  Void xSetProfileTierLevel       ( TComVPS& vps, Int profileTierLevelIdx, Int subLayer,                              
+                                    Profile::Name profile, Level::Name level, Level::Tier tier, 
+                                    Bool progressiveSourceFlag, Bool interlacedSourceFlag, 
+                                    Bool nonPackedConstraintFlag, Bool frameOnlyConstraintFlag, 
+                                    Bool inbldFlag );
+  Void xSetRepFormat              ( TComVPS& vps );
+  Void xSetDpbSize                ( TComVPS& vps );
+  Void xSetVPSVUI                 ( TComVPS& vps );
+  GOPEntry* xGetGopEntry( Int layerIdInVps, Int poc );
+  Int  xGetMax( std::vector<Int>& vec);
+  Bool xLayerIdInTargetEncLayerIdList( Int nuhLayerId );
+#endif
 
 public:
   TAppEncTop();
   virtual ~TAppEncTop();
 
   Void        encode      ();                               ///< main encoding function
+#if NH_MV
+  TEncTop*    getTEncTop( UInt layer ) { return  m_acTEncTopList[layer]; }  ///< return pointer to encoder class for specific layer
+#else
   TEncTop&    getTEncTop  ()   { return  m_cTEncTop; }      ///< return encoder class pointer reference
-
+#endif
 };// END CLASS DEFINITION TAppEncTop
 
 //! \}

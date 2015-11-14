@@ -30,30 +30,126 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 /** \file     TypeDef.h
     \brief    Define basic types, new types and enumerations
 */
-
 #ifndef __TYPEDEF__
 #define __TYPEDEF__
-
+#ifndef __COMMONDEF__
+#error Include CommonDef.h not TypeDef.h
+#endif
 #include <vector>
-
 //! \ingroup TLibCommon
 //! \{
+/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// EXTENSION SELECTION ///////////////////////////////////  
+/////////////////////////////////////////////////////////////////////////////////////////
+/* HEVC_EXT might be defined by compiler/makefile options.
+   Linux makefiles support the following settings:   
+   make             -> HEVC_EXT not defined    
+   make HEVC_EXT=0  -> NH_MV=0   --> plain HM
+   make HEVC_EXT=1  -> NH_MV=1   --> MV only 
+*/
+#ifndef HEVC_EXT
+#define HEVC_EXT                    1
+#endif
+#if ( HEVC_EXT < 0 )||( HEVC_EXT > 1 )
+#error HEVC_EXT must be in the range of 0 to 1, inclusive. 
+#endif
+#define NH_MV          ( HEVC_EXT != 0)
+/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////   FIXES           ///////////////////////////////////  
+/////////////////////////////////////////////////////////////////////////////////////////
+#if NH_MV
+#define NH_MV_FIX_TICKET_106                      1 // Identical motion check. 
+#define NH_MV_FIX_NO_REF_PICS_CHECK               1 // !!SPEC!! 
+#define NH_MV_FIX_INIT_NUM_ACTIVE_REF_LAYER_PICS  1 // Derivation of NumActiveRefLayerPIcs. !!SPEC!! 
+#define NH_MV_FIX_NUM_POC_TOTAL_CUR               1 // Derivation of NumPocTotalCur for IDR pictures. !!SPEC!!
+#endif
+/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////   MAJOR DEFINES   ///////////////////////////////////  
+/////////////////////////////////////////////////////////////////////////////////////////
+#if NH_MV
+#define H_MV_ENC_DEC_TRAC                 1  //< CU/PU level tracking
+/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////   DERIVED DEFINES ///////////////////////////////////  
+/////////////////////////////////////////////////////////////////////////////////////////
 
+
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////   MV_HEVC HLS  //////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+// TBD: Check if integration is necessary. 
+#define H_MV_HLS_PTL_LIMITS                  0
+/////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////   HM RELATED DEFINES ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+#endif
 // ====================================================================================================================
 // Debugging
 // ====================================================================================================================
-
-// #define DEBUG_STRING                 // enable to print out final decision debug info at encoder and decoder
-// #define DEBUG_ENCODER_SEARCH_BINS    // enable to print out each bin as it is coded during encoder search
-// #define DEBUG_CABAC_BINS             // enable to print out each bin as it is coded during final encode and decode
-// #define DEBUG_INTRA_SEARCH_COSTS     // enable to print out the cost for each mode during encoder search
-// #define DEBUG_TRANSFORM_AND_QUANTISE // enable to print out each TU as it passes through the transform-quantise-dequantise-inverseTransform process
-
-#ifdef DEBUG_STRING
+#define DEBUG_STRING                                      0 ///< When enabled, prints out final decision debug info at encoder and decoder
+#define DEBUG_ENCODER_SEARCH_BINS                         0 ///< When enabled, prints out each bin as it is coded during encoder search
+#define DEBUG_CABAC_BINS                                  0 ///< When enabled, prints out each bin as it is coded during final encode and decode
+#define DEBUG_INTRA_SEARCH_COSTS                          0 ///< When enabled, prints out the cost for each mode during encoder search
+#define DEBUG_TRANSFORM_AND_QUANTISE                      0 ///< When enabled, prints out each TU as it passes through the transform-quantise-dequantise-inverseTransform process
+#define ENVIRONMENT_VARIABLE_DEBUG_AND_TEST               0 ///< When enabled, allows control of debug modifications via environment variables
+#define PRINT_MACRO_VALUES                                1 ///< When enabled, the encoder prints out a list of the non-environment-variable controlled macros and their values on startup
+// TODO: rename this macro to DECODER_DEBUG_BIT_STATISTICS (may currently cause merge issues with other branches)
+// This can be enabled by the makefile
+#ifndef RExt__DECODER_DEBUG_BIT_STATISTICS
+#define RExt__DECODER_DEBUG_BIT_STATISTICS                0 ///< 0 (default) = decoder reports as normal, 1 = decoder produces bit usage statistics (will impact decoder run time by up to ~10%)
+#endif
+// This can be enabled by the makefile
+#if !NH_MV
+#ifndef ENC_DEC_TRACE
+#define ENC_DEC_TRACE                                     0
+#endif
+#endif
+#define DEC_NUH_TRACE                                     0 ///< When trace enabled, enable tracing of NAL unit headers at the decoder (currently not possible at the encoder)
+#define PRINT_RPS_INFO                                    0 ///< Enable/disable the printing of bits used to send the RPS.
+// ====================================================================================================================
+// Tool Switches - transitory (these macros are likely to be removed in future revisions)
+// ====================================================================================================================
+#define DECODER_CHECK_SUBSTREAM_AND_SLICE_TRAILING_BYTES  1 ///< TODO: integrate this macro into a broader conformance checking system.
+#define T0196_SELECTIVE_RDOQ                              1 ///< selective RDOQ
+// ====================================================================================================================
+// Tool Switches
+// ====================================================================================================================
+#define ADAPTIVE_QP_SELECTION                             1 ///< G382: Adaptive reconstruction levels, non-normative part for adaptive QP selection
+#define AMP_ENC_SPEEDUP                                   1 ///< encoder only speed-up by AMP mode skipping
+#if AMP_ENC_SPEEDUP
+#define AMP_MRG                                           1 ///< encoder only force merge for AMP partition (no motion search for AMP)
+#endif
+#define FAST_BIT_EST                                      1   ///< G763: Table-based bit estimation for CABAC
+#define HHI_RQT_INTRA_SPEEDUP                             1           ///< tests one best mode with full rqt
+#define HHI_RQT_INTRA_SPEEDUP_MOD                         0           ///< tests two best modes with full rqt
+#if HHI_RQT_INTRA_SPEEDUP_MOD && !HHI_RQT_INTRA_SPEEDUP
+#error
+#endif
+#define MATRIX_MULT                                       0 ///< Brute force matrix multiplication instead of partial butterfly
+#define O0043_BEST_EFFORT_DECODING                        0 ///< 0 (default) = disable code related to best effort decoding, 1 = enable code relating to best effort decoding [ decode-side only ].
+#define RDOQ_CHROMA_LAMBDA                                1 ///< F386: weighting of chroma for RDOQ
+// This can be enabled by the makefile
+#ifndef RExt__HIGH_BIT_DEPTH_SUPPORT
+#define RExt__HIGH_BIT_DEPTH_SUPPORT                                           0 ///< 0 (default) use data type definitions for 8-10 bit video, 1 = use larger data types to allow for up to 16-bit video (originally developed as part of N0188)
+#endif
+// ====================================================================================================================
+// Derived macros
+// ====================================================================================================================
+#if RExt__HIGH_BIT_DEPTH_SUPPORT
+#define FULL_NBIT                                                              1 ///< When enabled, use distortion measure derived from all bits of source data, otherwise discard (bitDepth - 8) least-significant bits of distortion
+#define RExt__HIGH_PRECISION_FORWARD_TRANSFORM                                 1 ///< 0 use original 6-bit transform matrices for both forward and inverse transform, 1 (default) = use original matrices for inverse transform and high precision matrices for forward transform
+#else
+#define FULL_NBIT                                                              0 ///< When enabled, use distortion measure derived from all bits of source data, otherwise discard (bitDepth - 8) least-significant bits of distortion
+#define RExt__HIGH_PRECISION_FORWARD_TRANSFORM                                 0 ///< 0 (default) use original 6-bit transform matrices for both forward and inverse transform, 1 = use original matrices for inverse transform and high precision matrices for forward transform
+#endif
+#if FULL_NBIT
+# define DISTORTION_PRECISION_ADJUSTMENT(x)  0
+#else
+# define DISTORTION_PRECISION_ADJUSTMENT(x) (x)
+#endif
+#if DEBUG_STRING
   #define DEBUG_STRING_PASS_INTO(name) , name
   #define DEBUG_STRING_PASS_INTO_OPTIONAL(name, exp) , (exp==0)?0:name
   #define DEBUG_STRING_FN_DECLARE(name) , std::string &name
@@ -76,216 +172,17 @@
   #define DEBUG_STRING_SWAP(srt1, str2)
   #define DEBUG_STRING_CHANNEL_CONDITION(compID)
 #endif
-
-
 // ====================================================================================================================
-// Tool Switches
-// ====================================================================================================================
-#define T0196_SELECTIVE_RDOQ                              1 ///< selective RDOQ
-
-#define HARMONIZE_GOP_FIRST_FIELD_COUPLE                  1
-#define EFFICIENT_FIELD_IRAP                              1
-#define ALLOW_RECOVERY_POINT_AS_RAP                       1
-#define BUGFIX_INTRAPERIOD                                1
-
-#define SAO_ENCODE_ALLOW_USE_PREDEBLOCK                   1
-
-#define TILE_SIZE_CHECK                                   1
-
-#define MAX_NUM_PICS_IN_SOP                            1024
-
-#define MAX_NESTING_NUM_OPS                            1024
-#define MAX_NESTING_NUM_LAYER                            64
-
-#define MAX_VPS_NUM_HRD_PARAMETERS                        1
-#define MAX_VPS_OP_SETS_PLUS1                          1024
-#define MAX_VPS_NUH_RESERVED_ZERO_LAYER_ID_PLUS1          1
-
-#define MAXIMUM_INTRA_FILTERED_WIDTH                     16
-#define MAXIMUM_INTRA_FILTERED_HEIGHT                    16
-
-#define MAX_CPB_CNT                                      32 ///< Upper bound of (cpb_cnt_minus1 + 1)
-#define MAX_NUM_LAYER_IDS                                64
-
-#define COEF_REMAIN_BIN_REDUCTION                         3 ///< indicates the level at which the VLC
-                                                            ///< transitions from Golomb-Rice to TU+EG(k)
-
-#define CU_DQP_TU_CMAX                                    5 ///< max number bins for truncated unary
-#define CU_DQP_EG_k                                       0 ///< expgolomb order
-
-#define SBH_THRESHOLD                                     4  ///< I0156: value of the fixed SBH controlling threshold
-
-#define DISABLING_CLIP_FOR_BIPREDME                       1  ///< Ticket #175
-
-#define C1FLAG_NUMBER                                     8 // maximum number of largerThan1 flag coded in one chunk :  16 in HM5
-#define C2FLAG_NUMBER                                     1 // maximum number of largerThan2 flag coded in one chunk:  16 in HM5
-
-#define SAO_ENCODING_CHOICE                               1  ///< I0184: picture early termination
-#if SAO_ENCODING_CHOICE
-#define SAO_ENCODING_RATE                                 0.75
-#define SAO_ENCODING_CHOICE_CHROMA                        1 ///< J0044: picture early termination Luma and Chroma are handled separately
-#if SAO_ENCODING_CHOICE_CHROMA
-#define SAO_ENCODING_RATE_CHROMA                          0.5
-#endif
-#endif
-
-#define MAX_NUM_SAO_OFFSETS                               4
-
-#define MAX_NUM_VPS                                      16
-#define MAX_NUM_SPS                                      16
-#define MAX_NUM_PPS                                      64
-
-#define RDOQ_CHROMA_LAMBDA                                1   ///< F386: weighting of chroma for RDOQ
-
-#define MIN_SCAN_POS_CROSS                                4
-
-#define FAST_BIT_EST                                      1   ///< G763: Table-based bit estimation for CABAC
-
-#define MLS_GRP_NUM                                      64     ///< G644 : Max number of coefficient groups, max(16, 64)
-#define MLS_CG_LOG2_WIDTH                                 2
-#define MLS_CG_LOG2_HEIGHT                                2
-#define MLS_CG_SIZE                                     (MLS_CG_LOG2_WIDTH + MLS_CG_LOG2_HEIGHT)  ///< G644 : Coefficient group size of 4x4
-
-#define ADAPTIVE_QP_SELECTION                             1      ///< G382: Adaptive reconstruction levels, non-normative part for adaptive QP selection
-#if ADAPTIVE_QP_SELECTION
-#define ARL_C_PRECISION                                   7      ///< G382: 7-bit arithmetic precision
-#define LEVEL_RANGE                                      30     ///< G382: max coefficient level in statistics collection
-#endif
-
-#define HHI_RQT_INTRA_SPEEDUP                             1           ///< tests one best mode with full rqt
-#define HHI_RQT_INTRA_SPEEDUP_MOD                         0           ///< tests two best modes with full rqt
-
-#if HHI_RQT_INTRA_SPEEDUP_MOD && !HHI_RQT_INTRA_SPEEDUP
-#error
-#endif
-
-#define VERBOSE_RATE 0 ///< Print additional rate information in encoder
-
-#define AMVP_DECIMATION_FACTOR                            4
-
-#define SCAN_SET_SIZE                                    16
-#define LOG2_SCAN_SET_SIZE                                4
-
-#define FAST_UDI_MAX_RDMODE_NUM                          35          ///< maximum number of RD comparison in fast-UDI estimation loop
-
-#define NUM_INTRA_MODE                                   36
-
-#define WRITE_BACK                                        1           ///< Enable/disable the encoder to replace the deltaPOC and Used by current from the config file with the values derived by the refIdc parameter.
-#define PRINT_RPS_INFO                                    0           ///< Enable/disable the printing of bits used to send the RPS.
-                                                                        // using one nearest frame as reference frame, and the other frames are high quality (POC%4==0) frames (1+X)
-                                                                        // this should be done with encoder only decision
-                                                                        // but because of the absence of reference frame management, the related code was hard coded currently
-
-#define RVM_VCEGAM10_M 4
-
-#define PLANAR_IDX                                        0
-#define VER_IDX                                          26                    // index for intra VERTICAL   mode
-#define HOR_IDX                                          10                    // index for intra HORIZONTAL mode
-#define DC_IDX                                            1                    // index for intra DC mode
-#define NUM_CHROMA_MODE                                   5                    // total number of chroma modes
-#define DM_CHROMA_IDX                                    36                    // chroma mode index for derived from luma intra mode
-#define INVALID_MODE_IDX                                 (NUM_INTRA_MODE+1)    // value used to indicate an invalid intra mode
-#define STOPCHROMASEARCH_MODE_IDX                        (INVALID_MODE_IDX+1)  // value used to signal the end of a chroma mode search
-
-#define MDCS_ANGLE_LIMIT                                  4         ///< (default 4) 0 = Horizontal/vertical only, 1 = Horizontal/vertical +/- 1, 2 = Horizontal/vertical +/- 2 etc...
-#define MDCS_MAXIMUM_WIDTH                                8         ///< (default 8) (measured in pixels) TUs with width greater than this can only use diagonal scan
-#define MDCS_MAXIMUM_HEIGHT                               8         ///< (default 8) (measured in pixels) TUs with height greater than this can only use diagonal scan
-
-#define FAST_UDI_USE_MPM 1
-
-#define RDO_WITHOUT_DQP_BITS                              0           ///< Disable counting dQP bits in RDO-based mode decision
-
-#define LOG2_MAX_NUM_COLUMNS_MINUS1                       7
-#define LOG2_MAX_NUM_ROWS_MINUS1                          7
-#define LOG2_MAX_COLUMN_WIDTH                            13
-#define LOG2_MAX_ROW_HEIGHT                              13
-
-#define MATRIX_MULT                                       0 // Brute force matrix multiplication instead of partial butterfly
-
-#define AMP_SAD                                           1 ///< dedicated SAD functions for AMP
-#define AMP_ENC_SPEEDUP                                   1 ///< encoder only speed-up by AMP mode skipping
-#if AMP_ENC_SPEEDUP
-#define AMP_MRG                                           1 ///< encoder only force merge for AMP partition (no motion search for AMP)
-#endif
-
-#define CABAC_INIT_PRESENT_FLAG                           1
-
-#define LUMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS    4
-#define CHROMA_INTERPOLATION_FILTER_SUB_SAMPLE_POSITIONS  8
-
-#define MAX_NUM_LONG_TERM_REF_PICS                       33
-#define NUM_LONG_TERM_REF_PIC_SPS                         0
-
-#define DECODER_CHECK_SUBSTREAM_AND_SLICE_TRAILING_BYTES  1
-
-#define RD_TEST_SAO_DISABLE_AT_PICTURE_LEVEL              0 ///< 1 = tests whether SAO should be disabled at the picture level,  0 (default) = does not apply this additional test
-
-#define O0043_BEST_EFFORT_DECODING                        0 ///< 0 (default) = disable code related to best effort decoding, 1 = enable code relating to best effort decoding [ decode-side only ].
-
-#define MAX_QP_OFFSET_LIST_SIZE                           6 ///< Maximum size of QP offset list is 6 entries
-// Cost mode support
-
-#define LOSSLESS_AND_MIXED_LOSSLESS_RD_COST_TEST_QP       0 ///< QP to use for lossless coding.
-#define LOSSLESS_AND_MIXED_LOSSLESS_RD_COST_TEST_QP_PRIME 4 ///< QP' to use for mixed_lossy_lossless coding.
-
-// Debug support
-
-#define ENVIRONMENT_VARIABLE_DEBUG_AND_TEST               0 ///< When enabled, allows control of debug modifications via environment variables
-
-#define PRINT_MACRO_VALUES                                1 ///< When enabled, the encoder prints out a list of the non-environment-variable controlled macros and their values on startup
-
-// TODO: rename this macro to DECODER_DEBUG_BIT_STATISTICS (may currently cause merge issues with other branches)
-// This can be enabled by the makefile
-#ifndef RExt__DECODER_DEBUG_BIT_STATISTICS
-#define RExt__DECODER_DEBUG_BIT_STATISTICS                                     0 ///< 0 (default) = decoder reports as normal, 1 = decoder produces bit usage statistics (will impact decoder run time by up to ~10%)
-#endif
-
-// This can be enabled by the makefile
-#ifndef RExt__HIGH_BIT_DEPTH_SUPPORT
-#define RExt__HIGH_BIT_DEPTH_SUPPORT                                           0 ///< 0 (default) use data type definitions for 8-10 bit video, 1 = use larger data types to allow for up to 16-bit video (originally developed as part of N0188)
-#endif
-
-#define RExt__GOLOMB_RICE_ADAPTATION_STATISTICS_SETS                           4
-#define RExt__GOLOMB_RICE_INCREMENT_DIVISOR                                    4
-
-#define RExt__PREDICTION_WEIGHTING_ANALYSIS_DC_PRECISION                       0 ///< Additional fixed bit precision used during encoder-side weighting prediction analysis. Currently only used when high_precision_prediction_weighting_flag is set, for backwards compatibility reasons.
-
-#define MAX_TIMECODE_SEI_SETS                                                  3 ///< Maximum number of time sets
-
-//------------------------------------------------
-// Derived macros
-//------------------------------------------------
-
-#if RExt__HIGH_BIT_DEPTH_SUPPORT
-#define FULL_NBIT                                                              1 ///< When enabled, use distortion measure derived from all bits of source data, otherwise discard (bitDepth - 8) least-significant bits of distortion
-#define RExt__HIGH_PRECISION_FORWARD_TRANSFORM                                 1 ///< 0 use original 6-bit transform matrices for both forward and inverse transform, 1 (default) = use original matrices for inverse transform and high precision matrices for forward transform
-#else
-#define FULL_NBIT                                                              0 ///< When enabled, use distortion measure derived from all bits of source data, otherwise discard (bitDepth - 8) least-significant bits of distortion
-#define RExt__HIGH_PRECISION_FORWARD_TRANSFORM                                 0 ///< 0 (default) use original 6-bit transform matrices for both forward and inverse transform, 1 = use original matrices for inverse transform and high precision matrices for forward transform
-#endif
-
-#if FULL_NBIT
-# define DISTORTION_PRECISION_ADJUSTMENT(x)  0
-#else
-# define DISTORTION_PRECISION_ADJUSTMENT(x) (x)
-#endif
-
-
-//------------------------------------------------
 // Error checks
-//------------------------------------------------
-
+// ====================================================================================================================
 #if ((RExt__HIGH_PRECISION_FORWARD_TRANSFORM != 0) && (RExt__HIGH_BIT_DEPTH_SUPPORT == 0))
 #error ERROR: cannot enable RExt__HIGH_PRECISION_FORWARD_TRANSFORM without RExt__HIGH_BIT_DEPTH_SUPPORT
 #endif
-
 // ====================================================================================================================
 // Basic type redefinition
 // ====================================================================================================================
-
 typedef       void                Void;
 typedef       bool                Bool;
-
 #ifdef __arm__
 typedef       signed char         Char;
 #else
@@ -298,33 +195,58 @@ typedef       int                 Int;
 typedef       unsigned int        UInt;
 typedef       double              Double;
 typedef       float               Float;
-
-
 // ====================================================================================================================
 // 64-bit integer type
 // ====================================================================================================================
-
 #ifdef _MSC_VER
 typedef       __int64             Int64;
-
 #if _MSC_VER <= 1200 // MS VC6
 typedef       __int64             UInt64;   // MS VC6 does not support unsigned __int64 to double conversion
 #else
 typedef       unsigned __int64    UInt64;
 #endif
-
 #else
-
 typedef       long long           Int64;
 typedef       unsigned long long  UInt64;
-
 #endif
-
-
+// ====================================================================================================================
+// Named numerical types
+// ====================================================================================================================
+#if RExt__HIGH_BIT_DEPTH_SUPPORT
+typedef       Int             Pel;               ///< pixel type
+typedef       Int64           TCoeff;            ///< transform coefficient
+typedef       Int             TMatrixCoeff;      ///< transform matrix coefficient
+typedef       Short           TFilterCoeff;      ///< filter coefficient
+typedef       Int64           Intermediate_Int;  ///< used as intermediate value in calculations
+typedef       UInt64          Intermediate_UInt; ///< used as intermediate value in calculations
+#else
+typedef       Short           Pel;               ///< pixel type
+typedef       Int             TCoeff;            ///< transform coefficient
+typedef       Short           TMatrixCoeff;      ///< transform matrix coefficient
+typedef       Short           TFilterCoeff;      ///< filter coefficient
+typedef       Int             Intermediate_Int;  ///< used as intermediate value in calculations
+typedef       UInt            Intermediate_UInt; ///< used as intermediate value in calculations
+#endif
+#if FULL_NBIT
+typedef       UInt64          Distortion;        ///< distortion measurement
+#else
+typedef       UInt            Distortion;        ///< distortion measurement
+#endif
+#if NH_MV                         
+typedef std::vector< Int >        IntAry1d;
+typedef std::vector< IntAry1d >   IntAry2d; 
+typedef std::vector< IntAry2d >   IntAry3d; 
+typedef std::vector< IntAry3d >   IntAry4d; 
+typedef std::vector< IntAry4d >   IntAry5d; 
+typedef std::vector< Bool >        BoolAry1d;
+typedef std::vector< BoolAry1d >   BoolAry2d; 
+typedef std::vector< BoolAry2d >   BoolAry3d; 
+typedef std::vector< BoolAry3d >   BoolAry4d; 
+typedef std::vector< BoolAry4d >   BoolAry5d; 
+#endif
 // ====================================================================================================================
 // Enumeration
 // ====================================================================================================================
-
 enum RDPCMMode
 {
   RDPCM_OFF             = 0,
@@ -332,14 +254,12 @@ enum RDPCMMode
   RDPCM_VER             = 2,
   NUMBER_OF_RDPCM_MODES = 3
 };
-
 enum RDPCMSignallingMode
 {
   RDPCM_SIGNAL_IMPLICIT            = 0,
   RDPCM_SIGNAL_EXPLICIT            = 1,
   NUMBER_OF_RDPCM_SIGNALLING_MODES = 2
 };
-
 /// supported slice type
 enum SliceType
 {
@@ -348,7 +268,6 @@ enum SliceType
   I_SLICE               = 2,
   NUMBER_OF_SLICE_TYPES = 3
 };
-
 /// chroma formats (according to semantics of chroma_format_idc)
 enum ChromaFormat
 {
@@ -358,14 +277,12 @@ enum ChromaFormat
   CHROMA_444        = 3,
   NUM_CHROMA_FORMAT = 4
 };
-
 enum ChannelType
 {
   CHANNEL_TYPE_LUMA    = 0,
   CHANNEL_TYPE_CHROMA  = 1,
   MAX_NUM_CHANNEL_TYPE = 2
 };
-
 enum ComponentID
 {
   COMPONENT_Y       = 0,
@@ -373,7 +290,6 @@ enum ComponentID
   COMPONENT_Cr      = 2,
   MAX_NUM_COMPONENT = 3
 };
-
 enum InputColourSpaceConversion // defined in terms of conversion prior to input of encoder.
 {
   IPCOLOURSPACE_UNCHANGED               = 0,
@@ -382,14 +298,12 @@ enum InputColourSpaceConversion // defined in terms of conversion prior to input
   IPCOLOURSPACE_RGBtoGBR                = 3,
   NUMBER_INPUT_COLOUR_SPACE_CONVERSIONS = 4
 };
-
 enum DeblockEdgeDir
 {
   EDGE_VER     = 0,
   EDGE_HOR     = 1,
   NUM_EDGE_DIR = 2
 };
-
 /// supported partition shape
 enum PartSize
 {
@@ -403,7 +317,6 @@ enum PartSize
   SIZE_nRx2N           = 7,           ///< asymmetric motion partition, (3N/2)x2N + ( N/2)x2N
   NUMBER_OF_PART_SIZES = 8
 };
-
 /// supported prediction type
 enum PredMode
 {
@@ -411,7 +324,6 @@ enum PredMode
   MODE_INTRA                 = 1,     ///< intra-prediction mode
   NUMBER_OF_PREDICTION_MODES = 2,
 };
-
 /// reference list index
 enum RefPicList
 {
@@ -420,7 +332,6 @@ enum RefPicList
   NUM_REF_PIC_LIST_01          = 2,
   REF_PIC_LIST_X               = 100  ///< special mark
 };
-
 /// distortion function index
 enum DFunc
 {
@@ -432,7 +343,6 @@ enum DFunc
   DF_SSE32           = 5,      ///<  32xM SSE
   DF_SSE64           = 6,      ///<  64xM SSE
   DF_SSE16N          = 7,      ///< 16NxM SSE
-
   DF_SAD             = 8,      ///< general size SAD
   DF_SAD4            = 9,      ///<   4xM SAD
   DF_SAD8            = 10,     ///<   8xM SAD
@@ -440,7 +350,6 @@ enum DFunc
   DF_SAD32           = 12,     ///<  32xM SAD
   DF_SAD64           = 13,     ///<  64xM SAD
   DF_SAD16N          = 14,     ///< 16NxM SAD
-
   DF_SADS            = 15,     ///< general size SAD with step
   DF_SADS4           = 16,     ///<   4xM SAD with step
   DF_SADS8           = 17,     ///<   8xM SAD with step
@@ -448,7 +357,6 @@ enum DFunc
   DF_SADS32          = 19,     ///<  32xM SAD with step
   DF_SADS64          = 20,     ///<  64xM SAD with step
   DF_SADS16N         = 21,     ///< 16NxM SAD with step
-
   DF_HADS            = 22,     ///< general size Hadamard with step
   DF_HADS4           = 23,     ///<   4xM HAD with step
   DF_HADS8           = 24,     ///<   8xM HAD with step
@@ -456,24 +364,15 @@ enum DFunc
   DF_HADS32          = 26,     ///<  32xM HAD with step
   DF_HADS64          = 27,     ///<  64xM HAD with step
   DF_HADS16N         = 28,     ///< 16NxM HAD with step
-
-#if AMP_SAD
   DF_SAD12           = 43,
   DF_SAD24           = 44,
   DF_SAD48           = 45,
-
   DF_SADS12          = 46,
   DF_SADS24          = 47,
   DF_SADS48          = 48,
-
   DF_SSE_FRAME       = 50,     ///< Frame-based SSE
   DF_TOTAL_FUNCTIONS = 64
-#else
-  DF_SSE_FRAME       = 32,     ///< Frame-based SSE
-  DF_TOTAL_FUNCTIONS = 33
-#endif
 };
-
 /// index for SBAC based RD optimization
 enum CI_IDX
 {
@@ -485,7 +384,6 @@ enum CI_IDX
   CI_QT_TRAFO_ROOT,
   CI_NUM,               ///< total number
 };
-
 /// motion vector predictor direction used in AMVP
 enum MVP_DIR
 {
@@ -495,21 +393,18 @@ enum MVP_DIR
   MD_BELOW_LEFT,        ///< MVP of below left block
   MD_ABOVE_LEFT         ///< MVP of above left block
 };
-
 enum StoredResidualType
 {
   RESIDUAL_RECONSTRUCTED          = 0,
   RESIDUAL_ENCODER_SIDE           = 1,
   NUMBER_OF_STORED_RESIDUAL_TYPES = 2
 };
-
 enum TransformDirection
 {
   TRANSFORM_FORWARD              = 0,
   TRANSFORM_INVERSE              = 1,
   TRANSFORM_NUMBER_OF_DIRECTIONS = 2
 };
-
 /// supported ME search methods
 enum MESearchMethod
 {
@@ -517,7 +412,6 @@ enum MESearchMethod
   DIAMOND                    = 1,     ///< Fast search
   SELECTIVE                  = 2      ///< Selective search
 };
-
 /// coefficient scanning type used in ACS
 enum COEFF_SCAN_TYPE
 {
@@ -526,14 +420,12 @@ enum COEFF_SCAN_TYPE
   SCAN_VER  = 2,        ///< vertical first scan
   SCAN_NUMBER_OF_TYPES = 3
 };
-
 enum COEFF_SCAN_GROUP_TYPE
 {
   SCAN_UNGROUPED   = 0,
   SCAN_GROUPED_4x4 = 1,
   SCAN_NUMBER_OF_GROUP_TYPES = 2
 };
-
 enum SignificanceMapContextType
 {
   CONTEXT_TYPE_4x4    = 0,
@@ -542,14 +434,12 @@ enum SignificanceMapContextType
   CONTEXT_TYPE_SINGLE = 3,
   CONTEXT_NUMBER_OF_TYPES = 4
 };
-
 enum ScalingListMode
 {
   SCALING_LIST_OFF,
   SCALING_LIST_DEFAULT,
   SCALING_LIST_FILE_READ
 };
-
 enum ScalingListSize
 {
   SCALING_LIST_4x4 = 0,
@@ -558,7 +448,6 @@ enum ScalingListSize
   SCALING_LIST_32x32,
   SCALING_LIST_SIZE_NUM
 };
-
 // Slice / Slice segment encoding modes
 enum SliceConstraint
 {
@@ -567,7 +456,6 @@ enum SliceConstraint
   FIXED_NUMBER_OF_BYTES  = 2,          ///< Limit maximum number of bytes in a slice / slice segment
   FIXED_NUMBER_OF_TILES  = 3,          ///< slices / slice segments span an integer number of tiles
 };
-
 enum SAOMode //mode
 {
   SAO_MODE_OFF = 0,
@@ -575,15 +463,12 @@ enum SAOMode //mode
   SAO_MODE_MERGE,
   NUM_SAO_MODES
 };
-
 enum SAOModeMergeTypes
 {
   SAO_MERGE_LEFT =0,
   SAO_MERGE_ABOVE,
   NUM_SAO_MERGE_TYPES
 };
-
-
 enum SAOModeNewTypes
 {
   SAO_TYPE_START_EO =0,
@@ -591,14 +476,11 @@ enum SAOModeNewTypes
   SAO_TYPE_EO_90,
   SAO_TYPE_EO_135,
   SAO_TYPE_EO_45,
-
   SAO_TYPE_START_BO,
   SAO_TYPE_BO = SAO_TYPE_START_BO,
-
   NUM_SAO_NEW_TYPES
 };
 #define NUM_SAO_EO_TYPES_LOG2 2
-
 enum SAOEOClasses
 {
   SAO_CLASS_EO_FULL_VALLEY = 0,
@@ -608,10 +490,20 @@ enum SAOEOClasses
   SAO_CLASS_EO_FULL_PEAK   = 4,
   NUM_SAO_EO_CLASSES,
 };
-
 #define NUM_SAO_BO_CLASSES_LOG2  5
 #define NUM_SAO_BO_CLASSES       (1<<NUM_SAO_BO_CLASSES_LOG2)
-
+#if NH_MV
+enum DecodingProcess
+{
+  INVALID,
+  CLAUSE_8,
+  ANNEX_C,
+  ANNEX_F,
+  ANNEX_G,
+  ANNEX_H,
+  ANNEX_I  
+};
+#endif
 namespace Profile
 {
   enum Name
@@ -622,9 +514,11 @@ namespace Profile
     MAINSTILLPICTURE = 3,
     MAINREXT = 4,
     HIGHTHROUGHPUTREXT = 5
+#if NH_MV
+    ,MULTIVIEWMAIN = 6,
+#endif
   };
 }
-
 namespace Level
 {
   enum Tier
@@ -632,7 +526,6 @@ namespace Level
     MAIN = 0,
     HIGH = 1,
   };
-
   enum Name
   {
     // code = (level * 30)
@@ -653,7 +546,6 @@ namespace Level
     LEVEL8_5 = 255,
   };
 }
-
 enum CostMode
 {
   COST_STANDARD_LOSSY              = 0,
@@ -661,7 +553,6 @@ enum CostMode
   COST_LOSSLESS_CODING             = 2,
   COST_MIXED_LOSSLESS_LOSSY_CODING = 3
 };
-
 enum SPSExtensionFlagIndex
 {
   SPS_EXT__REXT           = 0,
@@ -669,7 +560,6 @@ enum SPSExtensionFlagIndex
 //SPS_EXT__SHVC           = 2, //for use in future versions
   NUM_SPS_EXTENSION_FLAGS = 8
 };
-
 enum PPSExtensionFlagIndex
 {
   PPS_EXT__REXT           = 0,
@@ -677,55 +567,111 @@ enum PPSExtensionFlagIndex
 //PPS_EXT__SHVC           = 2, //for use in future versions
   NUM_PPS_EXTENSION_FLAGS = 8
 };
-
+// TODO: Existing names used for the different NAL unit types can be altered to better reflect the names in the spec.
+//       However, the names in the spec are not yet stable at this point. Once the names are stable, a cleanup
+//       effort can be done without use of macros to alter the names used to indicate the different NAL unit types.
+enum NalUnitType
+{
+  NAL_UNIT_CODED_SLICE_TRAIL_N = 0, // 0
+  NAL_UNIT_CODED_SLICE_TRAIL_R,     // 1
+  NAL_UNIT_CODED_SLICE_TSA_N,       // 2
+  NAL_UNIT_CODED_SLICE_TSA_R,       // 3
+  NAL_UNIT_CODED_SLICE_STSA_N,      // 4
+  NAL_UNIT_CODED_SLICE_STSA_R,      // 5
+  NAL_UNIT_CODED_SLICE_RADL_N,      // 6
+  NAL_UNIT_CODED_SLICE_RADL_R,      // 7
+  NAL_UNIT_CODED_SLICE_RASL_N,      // 8
+  NAL_UNIT_CODED_SLICE_RASL_R,      // 9
+  NAL_UNIT_RESERVED_VCL_N10,
+  NAL_UNIT_RESERVED_VCL_R11,
+  NAL_UNIT_RESERVED_VCL_N12,
+  NAL_UNIT_RESERVED_VCL_R13,
+  NAL_UNIT_RESERVED_VCL_N14,
+  NAL_UNIT_RESERVED_VCL_R15,
+  NAL_UNIT_CODED_SLICE_BLA_W_LP,    // 16
+  NAL_UNIT_CODED_SLICE_BLA_W_RADL,  // 17
+  NAL_UNIT_CODED_SLICE_BLA_N_LP,    // 18
+  NAL_UNIT_CODED_SLICE_IDR_W_RADL,  // 19
+  NAL_UNIT_CODED_SLICE_IDR_N_LP,    // 20
+  NAL_UNIT_CODED_SLICE_CRA,         // 21
+  NAL_UNIT_RESERVED_IRAP_VCL22,
+  NAL_UNIT_RESERVED_IRAP_VCL23,
+  NAL_UNIT_RESERVED_VCL24,
+  NAL_UNIT_RESERVED_VCL25,
+  NAL_UNIT_RESERVED_VCL26,
+  NAL_UNIT_RESERVED_VCL27,
+  NAL_UNIT_RESERVED_VCL28,
+  NAL_UNIT_RESERVED_VCL29,
+  NAL_UNIT_RESERVED_VCL30,
+  NAL_UNIT_RESERVED_VCL31,
+  NAL_UNIT_VPS,                     // 32
+  NAL_UNIT_SPS,                     // 33
+  NAL_UNIT_PPS,                     // 34
+  NAL_UNIT_ACCESS_UNIT_DELIMITER,   // 35
+  NAL_UNIT_EOS,                     // 36
+  NAL_UNIT_EOB,                     // 37
+  NAL_UNIT_FILLER_DATA,             // 38
+  NAL_UNIT_PREFIX_SEI,              // 39
+  NAL_UNIT_SUFFIX_SEI,              // 40
+  NAL_UNIT_RESERVED_NVCL41,
+  NAL_UNIT_RESERVED_NVCL42,
+  NAL_UNIT_RESERVED_NVCL43,
+  NAL_UNIT_RESERVED_NVCL44,
+  NAL_UNIT_RESERVED_NVCL45,
+  NAL_UNIT_RESERVED_NVCL46,
+  NAL_UNIT_RESERVED_NVCL47,
+  NAL_UNIT_UNSPECIFIED_48,
+  NAL_UNIT_UNSPECIFIED_49,
+  NAL_UNIT_UNSPECIFIED_50,
+  NAL_UNIT_UNSPECIFIED_51,
+  NAL_UNIT_UNSPECIFIED_52,
+  NAL_UNIT_UNSPECIFIED_53,
+  NAL_UNIT_UNSPECIFIED_54,
+  NAL_UNIT_UNSPECIFIED_55,
+  NAL_UNIT_UNSPECIFIED_56,
+  NAL_UNIT_UNSPECIFIED_57,
+  NAL_UNIT_UNSPECIFIED_58,
+  NAL_UNIT_UNSPECIFIED_59,
+  NAL_UNIT_UNSPECIFIED_60,
+  NAL_UNIT_UNSPECIFIED_61,
+  NAL_UNIT_UNSPECIFIED_62,
+  NAL_UNIT_UNSPECIFIED_63,
+  NAL_UNIT_INVALID,
+};
+#if NH_MV
+/// scalability types
+enum ScalabilityType
+{
+  DEPTH_ID = 0,    
+  VIEW_ORDER_INDEX  = 1,
+  DEPENDENCY_ID = 2,
+  AUX_ID = 3,
+};
+enum DecProcPart
+{
+  START_PIC,
+  FINALIZE_PIC
+};
+#endif
 // ====================================================================================================================
 // Type definition
 // ====================================================================================================================
-
-#if RExt__HIGH_BIT_DEPTH_SUPPORT
-typedef       Int             Pel;               ///< pixel type
-typedef       Int64           TCoeff;            ///< transform coefficient
-typedef       Int             TMatrixCoeff;      ///< transform matrix coefficient
-typedef       Short           TFilterCoeff;      ///< filter coefficient
-typedef       Int64           Intermediate_Int;  ///< used as intermediate value in calculations
-typedef       UInt64          Intermediate_UInt; ///< used as intermediate value in calculations
-#else
-typedef       Short           Pel;               ///< pixel type
-typedef       Int             TCoeff;            ///< transform coefficient
-typedef       Short           TMatrixCoeff;      ///< transform matrix coefficient
-typedef       Short           TFilterCoeff;      ///< filter coefficient
-typedef       Int             Intermediate_Int;  ///< used as intermediate value in calculations
-typedef       UInt            Intermediate_UInt; ///< used as intermediate value in calculations
-#endif
-
-#if FULL_NBIT
-typedef       UInt64          Distortion;        ///< distortion measurement
-#else
-typedef       UInt            Distortion;        ///< distortion measurement
-#endif
-
 /// parameters for adaptive loop filter
 class TComPicSym;
-
 #define MAX_NUM_SAO_CLASSES  32  //(NUM_SAO_EO_GROUPS > NUM_SAO_BO_GROUPS)?NUM_SAO_EO_GROUPS:NUM_SAO_BO_GROUPS
-
 struct SAOOffset
 {
   SAOMode modeIdc; // NEW, MERGE, OFF
   Int typeIdc;     // union of SAOModeMergeTypes and SAOModeNewTypes, depending on modeIdc.
   Int typeAuxInfo; // BO: starting band index
   Int offset[MAX_NUM_SAO_CLASSES];
-
   SAOOffset();
   ~SAOOffset();
   Void reset();
-
   const SAOOffset& operator= (const SAOOffset& src);
 };
-
 struct SAOBlkParam
 {
-
   SAOBlkParam();
   ~SAOBlkParam();
   Void reset();
@@ -733,10 +679,7 @@ struct SAOBlkParam
   SAOOffset& operator[](Int compIdx){ return offsetParam[compIdx];}
 private:
   SAOOffset offsetParam[MAX_NUM_COMPONENT];
-
 };
-
-
 struct BitDepths
 {
 #if O0043_BEST_EFFORT_DECODING
@@ -746,7 +689,6 @@ struct BitDepths
   Int recon[MAX_NUM_CHANNEL_TYPE]; ///< the bit depth as indicated in the SPS
 #endif
 };
-
 /// parameters for deblocking filter
 typedef struct _LFCUParam
 {
@@ -754,9 +696,6 @@ typedef struct _LFCUParam
   Bool bLeftEdge;                         ///< indicates left edge
   Bool bTopEdge;                          ///< indicates top edge
 } LFCUParam;
-
-
-
 //TU settings for entropy encoding
 struct TUEntropyCodingParameters
 {
@@ -767,12 +706,9 @@ struct TUEntropyCodingParameters
         UInt             heightInGroups;
         UInt             firstSignificanceMapContext;
 };
-
-
 struct TComPictureHash
 {
   std::vector<UChar> hash;
-
   Bool operator==(const TComPictureHash &other) const
   {
     if (other.hash.size() != hash.size())
@@ -788,13 +724,11 @@ struct TComPictureHash
     }
     return true;
   }
-
   Bool operator!=(const TComPictureHash &other) const
   {
     return !(*this == other);
   }
 };
-
 struct TComSEITimeSet
 {
   TComSEITimeSet() : clockTimeStampFlag(false),
@@ -829,7 +763,6 @@ struct TComSEITimeSet
   Int  timeOffsetLength;
   Int  timeOffsetValue;
 };
-
 struct TComSEIMasteringDisplay
 {
   Bool      colourVolumeSEIEnabled;
@@ -839,7 +772,4 @@ struct TComSEIMasteringDisplay
   UShort    whitePoint[2];
 };
 //! \}
-
 #endif
-
-

@@ -61,6 +61,10 @@
 // ====================================================================================================================
 // Class definition
 // ====================================================================================================================
+#if NH_MV
+class TDecTop; 
+#endif
+
 
 /// GOP decoder class
 class TDecGop
@@ -75,6 +79,9 @@ private:
   TDecCavlc*            m_pcCavlcDecoder;
   TDecSlice*            m_pcSliceDecoder;
   TComLoopFilter*       m_pcLoopFilter;
+#if NH_MV
+  //TDecTop*              m_decTop;
+#endif
 
   TComSampleAdaptiveOffset*     m_pcSAO;
   Double                m_dDecTime;

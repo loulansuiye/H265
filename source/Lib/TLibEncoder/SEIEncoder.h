@@ -78,13 +78,15 @@ public:
   Void initSEISegmentedRectFramePacking(SEISegmentedRectFramePacking *sei);
   Void initSEITempMotionConstrainedTileSets (SEITempMotionConstrainedTileSets *sei, const TComPPS *pps);
   Void initSEIKneeFunctionInfo(SEIKneeFunctionInfo *sei);
-  Void initSEIChromaSamplingFilterHint(SEIChromaSamplingFilterHint *sei, Bool bChromaLocInfoPresent, Int iHorFilterIndex, Int iVerFilterIndex);
+  Void initSEIChromaSamplingFilterHint(SEIChromaSamplingFilterHint *sei, Int iHorFilterIndex, Int iVerFilterIndex);
   Void initSEITimeCode(SEITimeCode *sei);
 
   // trailing SEIs
   Void initDecodedPictureHashSEI(SEIDecodedPictureHash *sei, TComPic *pcPic, std::string &rHashString, const BitDepths &bitDepths);
   Void initTemporalLevel0IndexSEI(SEITemporalLevel0Index *sei, TComSlice *slice);
-
+#if NH_MV
+  Void initSEISubBitstreamProperty(SEISubBitstreamProperty *seiSubBitstreamProperty, const TComSPS *sps);
+#endif
 private:
   TEncCfg* m_pcCfg;
   TEncTop* m_pcEncTop;

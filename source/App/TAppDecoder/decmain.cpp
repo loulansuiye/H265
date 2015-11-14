@@ -54,7 +54,11 @@ int main(int argc, char* argv[])
 
   // print information
   fprintf( stdout, "\n" );
+#if NH_MV
+  fprintf( stdout, "3D-HTM Software: Decoder Version [%s] based on HM Version [%s]", NV_VERSION, HM_VERSION );  
+#else
   fprintf( stdout, "HM software: Decoder Version [%s] (including RExt)", NV_VERSION );
+#endif
   fprintf( stdout, NVM_ONOS );
   fprintf( stdout, NVM_COMPILEDBY );
   fprintf( stdout, NVM_BITS );

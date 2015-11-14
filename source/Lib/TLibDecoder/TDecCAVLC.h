@@ -51,7 +51,9 @@
 // ====================================================================================================================
 // Class definition
 // ====================================================================================================================
-
+#if NH_MV
+class TDecTop;
+#endif
 /// CAVLC decoder class
 class TDecCavlc : public SyntaxElementParser, public TDecEntropyIf
 {
@@ -61,8 +63,15 @@ public:
 
 protected:
 
+#if NH_MV
+  Void  parseShortTermRefPicSet            (TComSPS* pcSPS, TComStRefPicSet* pcRPS, Int stRpsIdx );
+#else
   Void  parseShortTermRefPicSet            (TComSPS* pcSPS, TComReferencePictureSet* pcRPS, Int idx);
+#endif
 
+#if NH_MV
+  TDecTop*  m_decTop;
+#endif
 public:
 
   /// rest entropy coder by intial QP and IDC in CABAC
@@ -72,20 +81,40 @@ public:
   Void  parseQtCbf          ( class TComTU &rTu, const ComponentID compID, const Bool lowestLevel );
   Void  parseQtRootCbf      ( UInt uiAbsPartIdx, UInt& uiQtRootCbf );
   Void  parseVPS            ( TComVPS* pcVPS );
+#if NH_MV
+  Void  parseVPSExtension   ( TComVPS* pcVPS ); 
+  Void  parseRepFormat      ( Int i, TComRepFormat* curRepFormat, const TComRepFormat* prevRepFormat );
+  Void  parseVPSVUI         ( const TComVPS* pcVPS, TComVPSVUI* vpsVui );
+  Void  parseVideoSignalInfo( TComVideoSignalInfo* pcVideoSignalInfo ); 
+  Void  parseDpbSize        ( TComVPS* pcVPS ); 
+  Void  parseVpsVuiBspHrdParameters( const TComVPS* vps, TComVPSVUI* vpsVui ); 
+
+  Void  parseSpsMultilayerExtension( TComSPS* pcSPS );  
+  Void  parsePpsMultilayerExtension( TComPPS* pcPPS );
+  Void  setDecTop           ( TDecTop* decTop ) { m_decTop = decTop; }; 
+#endif
+
   Void  parseSPS            ( TComSPS* pcSPS );
   Void  parsePPS            ( TComPPS* pcPPS );
+
   Void  parseVUI            ( TComVUI* pcVUI, TComSPS* pcSPS );
   Void  parseSEI            ( SEIMessages& );
   Void  parsePTL            ( TComPTL *rpcPTL, Bool profilePresentFlag, Int maxNumSubLayersMinus1 );
   Void  parseProfileTier    (ProfileTierLevel *ptl, const Bool bIsSubLayer);
   Void  parseHrdParameters  (TComHRD *hrd, Bool cprms_present_flag, UInt tempLevelHigh);
+#if NH_MV
+  Void  parseFirstSliceSegmentInPicFlag( TComSlice* pcSlice );
+  Void  parseSliceHeader    ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager );
+#else
   Void  parseSliceHeader    ( TComSlice* pcSlice, ParameterSetManager *parameterSetManager, const Int prevTid0POC);
+#endif
+
   Void  parseTerminatingBit ( UInt& ruiBit );
   Void  parseRemainingBytes ( Bool noTrailingBytesExpected );
 
-  Void parseMVPIdx          ( Int& riMVPIdx );
-
-  Void parseSkipFlag        ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
+  Void  parseMVPIdx          ( Int& riMVPIdx );
+        
+  Void  parseSkipFlag        ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
   Void parseCUTransquantBypassFlag( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth );
   Void parseMergeFlag       ( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, UInt uiPUIdx );
   Void parseMergeIndex      ( TComDataCU* pcCU, UInt& ruiMergeIndex );
@@ -116,6 +145,9 @@ public:
   Void xDecodeScalingList    ( TComScalingList *scalingList, UInt sizeId, UInt listId);
 
   Void  parseExplicitRdpcmMode( TComTU &rTu, ComponentID compID );
+#if NH_MV
+  TDecTop*  getDecTop()      { return m_decTop; };
+#endif
 
 protected:
   Bool  xMoreRbspData();

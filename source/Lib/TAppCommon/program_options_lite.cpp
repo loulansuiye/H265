@@ -39,7 +39,7 @@
 #include <map>
 #include <algorithm>
 #include "program_options_lite.h"
-
+#include  "../TLibCommon/CommonDef.h"
 using namespace std;
 
 //! \ingroup TAppCommon
@@ -160,6 +160,9 @@ namespace df
       unsigned max_width = 0;
       for(Options::NamesPtrList::iterator it = opts.opt_list.begin(); it != opts.opt_list.end(); it++)
       {
+#if NH_MV
+        if  ( (*it)->opt->opt_duplicate ) continue; 
+#endif
         ostringstream line(ios_base::out);
         doHelpOpt(line, **it, pad_short);
         max_width = max(max_width, (unsigned) line.tellp());
@@ -175,6 +178,9 @@ namespace df
        */
       for(Options::NamesPtrList::iterator it = opts.opt_list.begin(); it != opts.opt_list.end(); it++)
       {
+#if NH_MV
+        if  ( (*it)->opt->opt_duplicate ) continue; 
+#endif
         ostringstream line(ios_base::out);
         line << "  ";
         doHelpOpt(line, **it, pad_short);
@@ -488,7 +494,11 @@ namespace df
       if (start == string::npos)
       {
         /* error: badly formatted line */
+#if !NH_MV
         error_reporter.warn(where()) << "line formatting error\n";
+#else
+        // HTM also allows empty parameters.
+#endif
         return;
       }
 
@@ -519,7 +529,11 @@ namespace df
       else
       {
         /* error: no value */
+#if !NH_MV
         error_reporter.warn(where()) << "no value found\n";
+#else
+        // This is ok for HTM.
+#endif
         return;
       }
 

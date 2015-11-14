@@ -129,15 +129,9 @@ private:
 #endif
   Int                     m_iCostScale;
 
-public: //JCY
-  UInt getCost() {return m_uiCost;}
-  Int  getCostScale() {return m_iCostScale;}
-  TComMv getMvPred() {return m_mvPredictor;}
-
 public:
   TComRdCost();
   virtual ~TComRdCost();
-
   Double  calcRdCost  ( UInt   uiBits, Distortion uiDistortion, Bool bFlag = false, DFunc eDFunc = DF_DEFAULT );
   Double  calcRdCost64( UInt64 uiBits, UInt64 uiDistortion, Bool bFlag = false, DFunc eDFunc = DF_DEFAULT );
 
@@ -160,10 +154,12 @@ public:
   Void    setDistParam( TComPattern* pcPatternKey, Pel* piRefY, Int iRefStride, Int iStep, DistParam& rcDistParam, Bool bHADME=false );
   Void    setDistParam( DistParam& rcDP, Int bitDepth, Pel* p1, Int iStride1, Pel* p2, Int iStride2, Int iWidth, Int iHeight, Bool bHadamard = false );
 
+
   Distortion calcHAD(Int bitDepth, Pel* pi0, Int iStride0, Pel* pi1, Int iStride1, Int iWidth, Int iHeight );
 
+
   // for motion cost
-  UInt    xGetComponentBits( Int iVal );
+  static UInt    xGetExpGolombNumberOfBits( Int iVal );
 #if RExt__HIGH_BIT_DEPTH_SUPPORT
   Void    getMotionCost( Bool bSad, Int iAdd, Bool bIsTransquantBypass ) { m_dCost = (bSad ? m_dLambdaMotionSAD[(bIsTransquantBypass && m_costMode==COST_MIXED_LOSSLESS_LOSSY_CODING) ?1:0] + iAdd : m_dLambdaMotionSSE[(bIsTransquantBypass && m_costMode==COST_MIXED_LOSSLESS_LOSSY_CODING)?1:0] + iAdd); }
 #else
@@ -189,8 +185,8 @@ public:
 #endif
   UInt    getBits( Int x, Int y )
   {
-    return xGetComponentBits((x << m_iCostScale) - m_mvPredictor.getHor())
-    +      xGetComponentBits((y << m_iCostScale) - m_mvPredictor.getVer());
+    return xGetExpGolombNumberOfBits((x << m_iCostScale) - m_mvPredictor.getHor())
+    +      xGetExpGolombNumberOfBits((y << m_iCostScale) - m_mvPredictor.getVer());
   }
 
 private:
@@ -211,12 +207,12 @@ private:
   static Distortion xGetSAD64         ( DistParam* pcDtParam );
   static Distortion xGetSAD16N        ( DistParam* pcDtParam );
 
-#if AMP_SAD
+
   static Distortion xGetSAD12         ( DistParam* pcDtParam );
   static Distortion xGetSAD24         ( DistParam* pcDtParam );
   static Distortion xGetSAD48         ( DistParam* pcDtParam );
 
-#endif
+
 
   static Distortion xGetHADs          ( DistParam* pcDtParam );
   static Distortion xCalcHADs2x2      ( Pel *piOrg, Pel *piCurr, Int iStrideOrg, Int iStrideCur, Int iStep );
@@ -227,6 +223,9 @@ private:
 public:
 
   Distortion   getDistPart(Int bitDepth, Pel* piCur, Int iCurStride,  Pel* piOrg, Int iOrgStride, UInt uiBlkWidth, UInt uiBlkHeight, const ComponentID compID, DFunc eDFunc = DF_SSE );
+
+
+
 
 };// END CLASS DEFINITION TComRdCost
 

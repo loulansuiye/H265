@@ -48,7 +48,16 @@ Void  SyntaxElementWriter::xWriteCodeTr (UInt value, UInt  length, const Char *p
   xWriteCode (value,length);
   if( g_HLSTraceEnable )
   {
+#if H_MV_ENC_DEC_TRAC
+    if ( !g_disableNumbering )
+    {
+      incSymbolCounter();
+      fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+    }
+#else
     fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
+
     if( length<10 )
     {
       fprintf( g_hTrace, "%-50s u(%d)  : %d\n", pSymbolName, length, value );
@@ -65,7 +74,16 @@ Void  SyntaxElementWriter::xWriteUvlcTr (UInt value, const Char *pSymbolName)
   xWriteUvlc (value);
   if( g_HLSTraceEnable )
   {
+#if H_MV_ENC_DEC_TRAC
+    if ( !g_disableNumbering )
+    {
+      incSymbolCounter(); 
+      fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+    }
+#else
     fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
+
     fprintf( g_hTrace, "%-50s ue(v) : %d\n", pSymbolName, value );
   }
 }
@@ -75,7 +93,16 @@ Void  SyntaxElementWriter::xWriteSvlcTr (Int value, const Char *pSymbolName)
   xWriteSvlc(value);
   if( g_HLSTraceEnable )
   {
+#if H_MV_ENC_DEC_TRAC
+    if ( !g_disableNumbering )
+    {
+      incSymbolCounter(); 
+      fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+    }
+#else
     fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
+
     fprintf( g_hTrace, "%-50s se(v) : %d\n", pSymbolName, value );
   }
 }
@@ -85,7 +112,16 @@ Void  SyntaxElementWriter::xWriteFlagTr(UInt value, const Char *pSymbolName)
   xWriteFlag(value);
   if( g_HLSTraceEnable )
   {
-    fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#if H_MV_ENC_DEC_TRAC
+    if ( !g_disableNumbering )
+    {
+      incSymbolCounter();
+      fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter );
+    }
+#else
+     fprintf( g_hTrace, "%8lld  ", g_nSymbolCounter++ );
+#endif
+
     fprintf( g_hTrace, "%-50s u(1)  : %d\n", pSymbolName, value );
   }
 }
@@ -127,6 +163,18 @@ Void SyntaxElementWriter::xWriteSvlc     ( Int iCode )
 Void SyntaxElementWriter::xWriteFlag( UInt uiCode )
 {
   m_pcBitIf->write( uiCode, 1 );
+}
+
+Void SyntaxElementWriter::xWriteRbspTrailingBits()
+{
+  WRITE_FLAG( 1, "rbsp_stop_one_bit");
+  Int cnt = 0;
+  while (m_pcBitIf->getNumBitsUntilByteAligned())
+  {
+    WRITE_FLAG( 0, "rbsp_alignment_zero_bit");
+    cnt++;
+  }
+  assert(cnt<8);
 }
 
 //! \}

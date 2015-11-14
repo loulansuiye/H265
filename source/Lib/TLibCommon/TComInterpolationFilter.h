@@ -39,10 +39,11 @@
 #ifndef __TCOMINTERPOLATIONFILTER__
 #define __TCOMINTERPOLATIONFILTER__
 
-#include "TypeDef.h"
+#include "CommonDef.h"
 
 //! \ingroup TLibCommon
 //! \{
+
 
 #define NTAPS_LUMA        8 ///< Number of taps for luma
 #define NTAPS_CHROMA      4 ///< Number of taps for chroma
@@ -72,8 +73,10 @@ public:
   TComInterpolationFilter() {}
   ~TComInterpolationFilter() {}
 
-  Void filterHor(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac,               Bool isLast, const ChromaFormat fmt, const Int bitDepth );
-  Void filterVer(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isFirst, Bool isLast, const ChromaFormat fmt, const Int bitDepth );
+  Void filterHor(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac,               Bool isLast, const ChromaFormat fmt, const Int bitDepth 
+);
+  Void filterVer(const ComponentID compID, Pel *src, Int srcStride, Pel *dst, Int dstStride, Int width, Int height, Int frac, Bool isFirst, Bool isLast, const ChromaFormat fmt, const Int bitDepth 
+);
 };
 
 //! \}

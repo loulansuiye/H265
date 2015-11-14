@@ -44,6 +44,9 @@
 #ifdef WIN32
 #define strdup _strdup
 #endif
+#if NH_MV
+#include <cassert>
+#endif
 
 using namespace std;
 namespace po = df::program_options_lite;
@@ -80,6 +83,9 @@ Bool TAppDecCfg::parseCfg( Int argc, Char* argv[] )
   ("OutputBitDepth,d",          m_outputBitDepth[CHANNEL_TYPE_LUMA],   0,          "bit depth of YUV output luma component (default: use 0 for native depth)")
   ("OutputBitDepthC,d",         m_outputBitDepth[CHANNEL_TYPE_CHROMA], 0,          "bit depth of YUV output chroma component (default: use 0 for native depth)")
   ("OutputColourSpaceConvert",  outputColourSpaceConvert,              string(""), "Colour space conversion to apply to input 444 video. Permitted values are (empty string=UNCHANGED) " + getListOfColourSpaceConverts(false))
+#if NH_MV
+  ("TargetOptLayerSetIdx,x",    m_targetOptLayerSetIdx,                -1,         "Target output layer set index. (default: -1, determine automatically to be equal to highest layer set index") // Should actually equal to 0 as default. However, this would cause only the base layer to be decoded.  
+#endif
   ("MaxTemporalLayer,t",        m_iMaxTemporalLayer,                   -1,         "Maximum Temporal Layer to be decoded. -1 to decode all layers")
   ("SEIDecodedPictureHash",     m_decodedPictureHashSEIEnabled,        1,          "Control handling of decoded picture hash SEI messages\n"
                                                                                    "\t1: check hash in SEI messages if available in the bitstream\n"
@@ -87,10 +93,16 @@ Bool TAppDecCfg::parseCfg( Int argc, Char* argv[] )
   ("SEINoDisplay",              m_decodedNoDisplaySEIEnabled,          true,       "Control handling of decoded no display SEI messages")
   ("TarDecLayerIdSetFile,l",    cfg_TargetDecLayerIdSetFile,           string(""), "targetDecLayerIdSet file name. The file should include white space separated LayerId values to be decoded. Omitting the option or a value of -1 in the file decodes all layers.")
   ("RespectDefDispWindow,w",    m_respectDefDispWindow,                0,          "Only output content inside the default display window\n")
+#if NH_MV
+  ("OutputVpsInfo,v",           m_printVpsInfo,                       false,       "Output information about the layer dependencies and layer sets")
+  ("PrintPicOutput,c" ,         m_printPicOutput,                     false,         "Print information on picture output")
+  ("PrintNalus,n",              m_printReceivedNalus,                 false,        "Print information on received NAL units")
+#endif
 #if O0043_BEST_EFFORT_DECODING
   ("ForceDecodeBitDepth",       m_forceDecodeBitDepth,                 0U,         "Force the decoder to operate at a particular bit-depth (best effort decoding)")
 #endif
   ("OutputDecodedSEIMessagesFilename",  m_outputDecodedSEIMessagesFilename,    string(""), "When non empty, output decoded SEI messages to the indicated file. If file is '-', then output to stdout\n")
+  ("ClipOutputVideoToRec709Range",      m_bClipOutputVideoToRec709Range,  false, "If true then clip output video to the Rec. 709 Range on saving")
   ;
 
   po::setDefaults(opts);
@@ -128,6 +140,7 @@ Bool TAppDecCfg::parseCfg( Int argc, Char* argv[] )
   m_pchBitstreamFile = cfg_BitstreamFile.empty() ? NULL : strdup(cfg_BitstreamFile.c_str());
   m_pchReconFile = cfg_ReconFile.empty() ? NULL : strdup(cfg_ReconFile.c_str());
 
+
   if (!m_pchBitstreamFile)
   {
     fprintf(stderr, "No input file specified, aborting\n");
@@ -136,6 +149,9 @@ Bool TAppDecCfg::parseCfg( Int argc, Char* argv[] )
 
   if ( !cfg_TargetDecLayerIdSetFile.empty() )
   {
+#if NH_MV
+    m_targetDecLayerIdSetFileEmpty = false;     
+#endif
     FILE* targetDecLayerIdSetFile = fopen ( cfg_TargetDecLayerIdSetFile.c_str(), "r" );
     if ( targetDecLayerIdSetFile )
     {
@@ -179,7 +195,27 @@ Bool TAppDecCfg::parseCfg( Int argc, Char* argv[] )
     }
   }
 
+#if NH_MV
+  //m_targetDecLayerIdSet.push_back( 0 );         // Only base layer at startup
+#endif
   return true;
 }
 
+#if NH_MV
+Void TAppDecCfg::xAppendToFileNameEnd( Char* pchInputFileName, const Char* pchStringToAppend, Char*& rpchOutputFileName)
+{
+  size_t iInLength     = strlen(pchInputFileName);
+  size_t iAppendLength = strlen(pchStringToAppend); 
+
+  rpchOutputFileName = (Char*) malloc(iInLength+iAppendLength+1);                        
+  Char* pCDot = strrchr(pchInputFileName,'.');         
+  pCDot = pCDot ? pCDot : pchInputFileName + iInLength;        
+  size_t iCharsToDot = pCDot - pchInputFileName ; 
+  size_t iCharsToEnd = iInLength - iCharsToDot;         
+  strncpy(rpchOutputFileName                            ,  pchInputFileName            , iCharsToDot  );
+  strncpy(rpchOutputFileName+ iCharsToDot               ,  pchStringToAppend           , iAppendLength); 
+  strncpy(rpchOutputFileName+ iCharsToDot+iAppendLength ,  pchInputFileName+iCharsToDot, iCharsToEnd  );        
+  rpchOutputFileName[iInLength+iAppendLength] = '\0';          
+}
+#endif
 //! \}

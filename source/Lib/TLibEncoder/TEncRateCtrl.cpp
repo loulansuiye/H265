@@ -481,10 +481,12 @@ TEncRCPic::TEncRCPic()
   m_pixelsLeft    = 0;
 
   m_LCUs         = NULL;
+
   m_picActualHeaderBits = 0;
   m_picActualBits       = 0;
   m_picQP               = 0;
   m_picLambda           = 0.0;
+
 }
 
 TEncRCPic::~TEncRCPic()
@@ -558,6 +560,7 @@ Void TEncRCPic::addToPictureLsit( list<TEncRCPic*>& listPreviousPictures )
   listPreviousPictures.push_back( this );
 }
 
+
 Void TEncRCPic::create( TEncRCSeq* encRCSeq, TEncRCGOP* encRCGOP, Int frameLevel, list<TEncRCPic*>& listPreviousPictures )
 {
   destroy();
@@ -606,12 +609,17 @@ Void TEncRCPic::create( TEncRCSeq* encRCSeq, TEncRCGOP* encRCGOP, Int frameLevel
       Int currWidth  = ( (i == picWidthInLCU -1) ? picWidth  - LCUWidth *(picWidthInLCU -1) : LCUWidth  );
       Int currHeight = ( (j == picHeightInLCU-1) ? picHeight - LCUHeight*(picHeightInLCU-1) : LCUHeight );
       m_LCUs[LCUIdx].m_numberOfPixel = currWidth * currHeight;
+
     }
   }
   m_picActualHeaderBits = 0;
   m_picActualBits       = 0;
   m_picQP               = 0;
   m_picLambda           = 0.0;
+
+
+
+
 }
 
 Void TEncRCPic::destroy()
@@ -758,6 +766,9 @@ Int TEncRCPic::estimatePicQP( Double lambda, list<TEncRCPic*>& listPreviousPictu
   return QP;
 }
 
+
+
+
 Double TEncRCPic::getLCUTargetBpp(SliceType eSliceType)
 {
   Int   LCUIdx    = getLCUCoded();
@@ -802,6 +813,11 @@ Double TEncRCPic::getLCUTargetBpp(SliceType eSliceType)
 
   return bpp;
 }
+
+
+
+
+
 
 Double TEncRCPic::getLCUEstLambda( Double bpp )
 {
@@ -1378,6 +1394,7 @@ Void TEncRateCtrl::init( Int totalFrames, Int targetBitrate, Int frameRate, Int 
   {
     m_encRCSeq->initLCUPara();
   }
+
 
   delete[] bitsRatio;
   delete[] GOPID2Level;

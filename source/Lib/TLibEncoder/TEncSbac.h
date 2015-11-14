@@ -112,11 +112,9 @@ private:
   Void  xWriteEpExGolomb     ( UInt uiSymbol, UInt uiCount );
   Void  xWriteCoefRemainExGolomb ( UInt symbol, UInt &rParam, const Bool useLimitedPrefixLength, const Int maxLog2TrDynamicRange );
 
+
   Void  xCopyFrom            ( const TEncSbac* pSrc );
   Void  xCopyContextsFrom    ( const TEncSbac* pSrc );
-
-  Void codeDFFlag( UInt /*uiCode*/, const Char* /*pSymbolName*/ )       {printf("Not supported in codeDFFlag()\n"); assert(0); exit(1);};
-  Void codeDFSvlc( Int /*iCode*/, const Char* /*pSymbolName*/ )         {printf("Not supported in codeDFSvlc()\n"); assert(0); exit(1);};
 
 protected:
   TComBitIf*    m_pcBitIf;
@@ -139,9 +137,8 @@ public:
   Void codeQtCbf               ( TComTU & rTu, const ComponentID compID, const Bool lowestLevel );
   Void codeQtRootCbf           ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeQtCbfZero           ( TComTU &rTu, const ChannelType chType );
-  Void codeQtRootCbfZero       ( TComDataCU* pcCU );
+  Void codeQtRootCbfZero       ( );
   Void codeIntraDirLumaAng     ( TComDataCU* pcCU, UInt absPartIdx, Bool isMultiple);
-
   Void codeIntraDirChroma      ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeInterDir            ( TComDataCU* pcCU, UInt uiAbsPartIdx );
   Void codeRefFrmIdx           ( TComDataCU* pcCU, UInt uiAbsPartIdx, RefPicList eRefList );
@@ -209,6 +206,7 @@ private:
 
   ContextModel3DBuffer m_ChromaQpAdjFlagSCModel;
   ContextModel3DBuffer m_ChromaQpAdjIdcSCModel;
+
 
   UInt m_golombRiceAdaptationStatistics[RExt__GOLOMB_RICE_ADAPTATION_STATISTICS_SETS];
 };
