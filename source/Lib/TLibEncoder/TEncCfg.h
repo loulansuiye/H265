@@ -600,6 +600,7 @@ public:
   Bool      getDisableIntraPUsInInterSlices () const { return m_bDisableIntraPUsInInterSlices; }
   Int       getFastSearch                   () const { return m_iFastSearch; }
   Int       getSearchRange                  () const { return m_iSearchRange; }
+  Int       getBipredSearchRange            () const { return  m_bipredSearchRange;} //JCY
   Bool      getClipForBiPredMeEnabled       () const { return m_bClipForBiPredMeEnabled; }
   Bool      getFastMEAssumingSmootherMVEnabled ( ) const { return m_bFastMEAssumingSmootherMVEnabled; }
 #if NH_MV

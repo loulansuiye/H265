@@ -14,10 +14,12 @@ endif
 
 CPP     = g++
 CC      = gcc
+NVCC    = nvcc
 AR    	= ar
 LD    	= $(CPP)
 ASM		= nasm
-
+DYN_LIB = /usr/local/cuda/lib64
+INC_LIB = /usr/local/cuda/include
 #########################################################
 # output file names and version information
 #########################################################
@@ -48,7 +50,8 @@ endif
 # default cpp flags for all configurations
 #CPPFLAGS          = -Wall -fPIC $(DEFS) -I$(CURDIR)/$(INC_DIR) $(USER_INC_DIRS)
 CPPFLAGS          = -fPIC $(DEFS)  $(ADDDEFS) -I$(CURDIR)/$(INC_DIR) $(USER_INC_DIRS) -Wall -Wshadow -Wno-sign-compare -Werror
-
+CCFLAGS          =  -static-libgcc -fPIC $(DEFS) -I$(CURDIR)/$(INC_DIR) $(USER_INC_DIRS) -Wall -Wshadow -Wno-sign-compare -Werror
+NVCCFLAGS         = -I$(INC_DIR) -I$(INC_LIB) --compiler-options=-Wall -c -arch=compute_30 -code=sm_30 -Xptxas -dlcm=ca
 ########## 
 # enforce 32-bit build : 1=yes, 0=no
 ##########
@@ -65,6 +68,8 @@ endif
 #
 # debug cpp flags
 DEBUG_CPPFLAGS    = -g  -D_DEBUG
+DEBUG_NVCCFLAGS  = -g -G
+
 #
 # release cpp
 RELEASE_CPPFLAGS  =  -O3 -Wuninitialized
@@ -90,7 +95,7 @@ RELEASE_ASMFLAGS  =
 #########################################################
 
 # linker flags for all
-ALL_LDFLAGS       = -Wall
+ALL_LDFLAGS       = -L$(DYN_LIB) -lcudart -lnvToolsExt -Wall
 
 ########## 
 # enforce 32-bit build : 1=yes, 0=no
@@ -142,7 +147,16 @@ DEBUG_OBJS    = $(OBJS:.o=.d.o)
 #########################################################
 
 # suffixes
-.SUFFIXES: .cpp .asm .r.o .d.o
+.SUFFIXES: .cu .cpp .asm .r.o .d.o
+
+#########################################################
+# NVCC rules
+#########################################################
+$(OBJ_DIR)/%.r.o: $(SRC_DIR)/%.cu
+	$(NVCC) $(NVCCFLAGS) -o $@ $<
+
+$(OBJ_DIR)/%.d.o: $(SRC_DIR)/%.cu
+	$(NVCC) $(DEBUG_NVCCFLAGS) $(NVCCFLAGS) -o $@ $< 
 
 #########################################################
 # assembler rules

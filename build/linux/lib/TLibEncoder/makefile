@@ -57,7 +57,9 @@ OBJS          	= \
 			$(OBJ_DIR)/TEncPreanalyzer.o \
 			$(OBJ_DIR)/WeightPredAnalysis.o \
 			$(OBJ_DIR)/TEncRateCtrl.o \
-
+			$(OBJ_DIR)/TEncMEs.o \
+			$(OBJ_DIR)/TEncGPUSearch.o \
+			
 LIBS				= -lpthread
 
 DEBUG_LIBS			=

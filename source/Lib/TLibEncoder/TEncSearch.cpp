@@ -41,6 +41,8 @@
 #include "TEncSearch.h"
 #include "TLibCommon/TComTU.h"
 #include "TLibCommon/Debug.h"
+#include "TEncMEs.h" //JCY
+#include "TEncSearch.h" //JCY
 #include <math.h>
 #include <limits>
 
@@ -211,6 +213,10 @@ Void TEncSearch::destroy()
 
   m_tmpYuvPred.destroy();
   m_isInitialized = false;
+
+  //!< JCY
+  m_pcHostGPU->Destroy();
+  delete m_pcHostGPU;
 }
 
 TEncSearch::~TEncSearch()
@@ -238,6 +244,12 @@ Void TEncSearch::init(TEncCfg*      pcEncCfg,
                       TEncSbac*   pcRDGoOnSbacCoder
                       )
 {
+  //JCY
+  m_pcHostGPU  = new GpuMeDataAccess(pcEncCfg->getSourceWidth(), pcEncCfg->getSourceHeight(), pcEncCfg->getGOPSize());
+  m_pcHostGPU->InitSearchData(pcEncCfg->getSearchRange(), pcEncCfg->getBipredSearchRange(), pcEncCfg->getFastSearch());
+  m_pcHostGPU->Init();
+  //~JCY
+
   assert (!m_isInitialized);
   m_pcEncCfg             = pcEncCfg;
   m_pcTrQuant            = pcTrQuant;
@@ -3884,6 +3896,32 @@ Void TEncSearch::xMotionEstimation( TComDataCU* pcCU, TComYuv* pcYuvOrg, Int iPa
   {
     xPatternSearch      ( pcPatternKey, piRefY, iRefStride, &cMvSrchRngLT, &cMvSrchRngRB, rcMv, ruiCost );
   }
+  else if (m_iFastSearch > 2) //JCY
+  {//JCY
+
+    Pel* piYORG = pcCU->getSlice()->getRefPic( eRefPicList, iRefIdxPred )->getPicYuvRec()->getBuf(COMPONENT_Y);
+    
+    Int iNumCTUPerRow = (m_pcHostGPU->GetFrameWidth() + 63) / 64;
+    Int iPUOffset =  (pcCU->getCtuRsAddr()%iNumCTUPerRow * 64) + (pcCU->getCtuRsAddr()/iNumCTUPerRow)*64*iRefStride + (g_auiZscanToRaster[(pcCU->getZorderIdxInCtu() + uiPartAddr)]%16 * 4)+ (g_auiZscanToRaster[(pcCU->getZorderIdxInCtu() + uiPartAddr)]/16) * 4 * iRefStride;
+
+    if ((piRefY - piYORG) != iPUOffset + m_pcHostGPU->GetLOrgOffset()) {
+      printf("Wrong iPUOffset: Correct: %ld Incorrect: %d\n",piRefY-piYORG-m_pcHostGPU->GetLOrgOffset(),iPUOffset); 
+    }
+
+    m_pcHostGPU->PreparePU(iPUOffset,iRoiWidth,iRoiHeight, eRefPicList == REF_PIC_LIST_0 ? 0 : 1, iRefIdxPred, m_pcRdCost->getMvPred().getHor(), m_pcRdCost->getMvPred().getVer(), m_pcRdCost->getCost(), m_pcRdCost->getCostScale());
+    
+   // clock_t lBefore = clock();
+    switch (m_iFastSearch) {
+      rcMv = *pcMvPred;
+     
+      case 3:
+            xBlockFastSearch  ( pcCU, pcPatternKey, piRefY, iRefStride, &cMvSrchRngLT, &cMvSrchRngRB, rcMv, ruiCost );
+            break;
+      case 4:          
+            xGpuFullBlockSearch ( pcCU, pcPatternKey, piRefY, iRefStride, &cMvSrchRngLT, &cMvSrchRngRB, rcMv, ruiCost );
+            break;
+    }
+  }
   else
   {
     rcMv = *pcMvPred;
@@ -3921,6 +3959,7 @@ Void TEncSearch::xMotionEstimation( TComDataCU* pcCU, TComYuv* pcYuvOrg, Int iPa
 }
 
 
+
 Void TEncSearch::xSetSearchRange ( TComDataCU* pcCU, TComMv& cMvPred, Int iSrchRng, TComMv& rcMvSrchRngLT, TComMv& rcMvSrchRngRB )
 {
   Int  iMvShift = 2;
@@ -3953,6 +3992,173 @@ Void TEncSearch::xSetSearchRange ( TComDataCU* pcCU, TComMv& cMvPred, Int iSrchR
 
 
 
+//JCY #1
+Void TEncSearch::xGpuFullBlockSearch(TComDataCU*   pcCU,
+                                     TComPattern*  pcPatternKey,
+                                     Pel*          piRefY,
+                                     Int           iRefStride,
+                                     TComMv*       pcMvSrchRngLT,
+                                     TComMv*       pcMvSrchRngRB,
+                                     TComMv       &rcMv,
+                                     Distortion   &ruiSAD )
+{
+  
+  const Bool bTestOtherPredictedMV    = 1; 
+  const Bool bTestZeroVector          = 1;  
+  const Bool bFirstSearchStop         = 0;  
+  const UInt uiFirstSearchRounds      = 3;  
+  const Bool bEnableRasterSearch      = 1;  
+  const Int  iRaster                  = 3;  
+
+  const Bool bStarRefinementEnable    = 1;
+  const Bool bAlwaysRasterSearch      = 0; /*0*/ /* ===== 1: BETTER but factor 2 slower ===== */                     \
+  const Bool bStarRefinementDiamond   = 1; /*1*/ /* 1 = xTZ8PointDiamondSearch   0 = xTZ8PointSquareSearch */        \
+  const Bool bStarRefinementStop      = 0; /*0*/                                                                     \
+  const UInt uiStarRefinementRounds   = 2; /*2*/ /* star refinement stop X rounds after best match (must be >=1) */  \
+
+
+  assert (MD_LEFT < NUM_MV_PREDICTORS);
+  pcCU->getMvPredLeft       ( m_acMvPredictors[MD_LEFT] );
+  assert (MD_ABOVE < NUM_MV_PREDICTORS);
+  pcCU->getMvPredAbove      ( m_acMvPredictors[MD_ABOVE] );
+  assert (MD_ABOVE_RIGHT < NUM_MV_PREDICTORS);
+  pcCU->getMvPredAboveRight ( m_acMvPredictors[MD_ABOVE_RIGHT] );
+
+  //For TZsearch part
+  Int   iSrchRngHorLeft   = pcMvSrchRngLT->getHor();
+  Int   iSrchRngHorRight  = pcMvSrchRngRB->getHor();
+  Int   iSrchRngVerTop    = pcMvSrchRngLT->getVer();
+  Int   iSrchRngVerBottom = pcMvSrchRngRB->getVer();
+  UInt uiSearchRange = m_iSearchRange;
+  
+  pcCU->clipMv( rcMv );
+  rcMv >>= 2;
+  // init TZSearchStruct
+  IntTZSearchStruct cStruct;
+  cStruct.iYStride    = iRefStride;
+  cStruct.piRefY      = piRefY;
+  cStruct.uiBestSad   = MAX_UINT;
+  cStruct.iBestX      = 0;
+  cStruct.iBestY      = 0;
+  // set rcMv (Median predictor) as start point and as best point
+  xTZSearchHelp( pcPatternKey, cStruct, rcMv.getHor(), rcMv.getVer(), 0, 0 );
+
+  // test whether one of PRED_A, PRED_B, PRED_C MV is better start point than Median predictor
+  if ( bTestOtherPredictedMV )
+  {
+    for ( UInt index = 0; index < NUM_MV_PREDICTORS; index++ )
+    {
+      TComMv cMv = m_acMvPredictors[index];
+      pcCU->clipMv( cMv );
+      cMv >>= 2;
+      xTZSearchHelp( pcPatternKey, cStruct, cMv.getHor(), cMv.getVer(), 0, 0 );
+    }
+  }
+
+  // test whether zero Mv is better start point than Median predictor
+  if ( bTestZeroVector )
+  {
+    xTZSearchHelp( pcPatternKey, cStruct, 0, 0, 0, 0 );
+  }
+
+  // start search
+ 
+  Int  iDist = 0;  
+  Int  iStartX = cStruct.iBestX;
+  Int  iStartY = cStruct.iBestY;
+    
+  for ( iDist = 1; iDist <= 4; iDist*=2 )
+  {
+     xTZ8PointDiamondSearch ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
+    
+    if ( bFirstSearchStop && ( cStruct.uiBestRound >= uiFirstSearchRounds ) ) // stop criterion
+    {
+      break;
+    }
+  }
+ 
+  rcMv.set( cStruct.iBestX, cStruct.iBestY );
+  ruiSAD = cStruct.uiBestSad - m_pcRdCost->getCost( cStruct.iBestX, cStruct.iBestY );
+  
+  
+  //-------------------------------------------------------------------------------------------------------//
+  if ((bEnableRasterSearch && ((Int)(cStruct.uiBestDistance) > iRaster)) )
+  {   
+    if(m_pcHostGPU->GetPUWidth() > 4 && m_pcHostGPU->GetPUHeight() > 4)
+    {
+      m_pcHostGPU->SetSearchWindowSize(pcMvSrchRngLT->getHor(),pcMvSrchRngRB->getHor(),pcMvSrchRngLT->getVer(),pcMvSrchRngRB->getVer());
+      m_pcHostGPU->SetSearchWindowPtr();
+      m_pcHostGPU->SetPuPtr();
+      m_pcHostGPU->GpuSearchWrapper();
+ 
+      rcMv.set(m_pcHostGPU->GetMvX(), m_pcHostGPU->GetMvY());
+      ruiSAD = m_pcHostGPU->GetSad() - m_pcRdCost->getCost( m_pcHostGPU->GetMvX(), m_pcHostGPU->GetMvY() );
+    }
+    else
+    {
+      if ( cStruct.uiBestDistance == 1 )
+      {
+       cStruct.uiBestDistance = 0;
+       xTZ2PointSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB );
+      }
+
+      // raster search if distance is too big
+      if ( bEnableRasterSearch && ( ((Int)(cStruct.uiBestDistance) > iRaster) || bAlwaysRasterSearch ) )
+      {
+        cStruct.uiBestDistance = iRaster;
+        for ( iStartY = iSrchRngVerTop; iStartY <= iSrchRngVerBottom; iStartY += iRaster )
+        {
+          for ( iStartX = iSrchRngHorLeft; iStartX <= iSrchRngHorRight; iStartX += iRaster )
+          {
+            xTZSearchHelp( pcPatternKey, cStruct, iStartX, iStartY, 0, iRaster );
+          }
+        }
+      }
+
+      // start refinement
+      if ( bStarRefinementEnable && cStruct.uiBestDistance > 0 )
+      {
+        while ( cStruct.uiBestDistance > 0 )
+        {
+          iStartX = cStruct.iBestX;
+          iStartY = cStruct.iBestY;
+          cStruct.uiBestDistance = 0;
+          cStruct.ucPointNr = 0;
+          for ( iDist = 1; iDist < (Int)uiSearchRange + 1; iDist*=2 )
+          {
+            if ( bStarRefinementDiamond == 1 )
+            {
+              xTZ8PointDiamondSearch ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
+            }
+            else
+            {
+              xTZ8PointSquareSearch  ( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB, iStartX, iStartY, iDist );
+            }
+            if ( bStarRefinementStop && (cStruct.uiBestRound >= uiStarRefinementRounds) ) // stop criterion
+            {
+              break;
+            }
+          }
+
+          // calculate only 2 missing points instead 8 points if cStrukt.uiBestDistance == 1
+          if ( cStruct.uiBestDistance == 1 )
+          {
+            cStruct.uiBestDistance = 0;
+            if ( cStruct.ucPointNr != 0 )
+            {
+              xTZ2PointSearch( pcPatternKey, cStruct, pcMvSrchRngLT, pcMvSrchRngRB );
+            }
+          }
+        }
+      }
+      
+      // write out best match
+      rcMv.set( cStruct.iBestX, cStruct.iBestY );
+      ruiSAD = cStruct.uiBestSad - m_pcRdCost->getCost( cStruct.iBestX, cStruct.iBestY );
+  }
+  // else {printf("Skipped\n");}
+ }
+}
 
 Void TEncSearch::xPatternSearch( TComPattern* pcPatternKey, Pel* piRefY, Int iRefStride, TComMv* pcMvSrchRngLT, TComMv* pcMvSrchRngRB, TComMv& rcMv, Distortion& ruiSAD )
 {

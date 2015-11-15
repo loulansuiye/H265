@@ -33,7 +33,7 @@ ReconFile_10                   :
 ReconFile_11                   :       
 
 
-NumberOfLayers                : 3           # Number of layers
+NumberOfLayers                : 2           # Number of layers
 TargetEncLayerIdList          :             # Layer Id in Nuh to be encoded, (empty:-> all layers will be encode) 
 
 FramesToBeEncoded             : 3           # Number of frames to be coded

@@ -48,6 +48,7 @@
 #include "TEncEntropy.h"
 #include "TEncSbac.h"
 #include "TEncCfg.h"
+#include "TEncMEs.h"
 
 //! \ingroup TLibEncoder
 //! \{
@@ -86,6 +87,9 @@ private:
 #if ADAPTIVE_QP_SELECTION
   TCoeff*         m_ppcQTTempTUArlCoeff[MAX_NUM_COMPONENT];
 #endif
+
+public:
+  GpuMeDataAccess* m_pcHostGPU;
 
 protected:
   // interface to option
@@ -424,6 +428,29 @@ const ComponentID   compID,
                                     TComMv*      pcMvSrchRngRB,
                                     TComMv&      rcMv,
                                     Distortion&  ruiSAD );
+
+    //JCY #1
+  Void xGpuFullBlockSearch        ( TComDataCU*  pcCU,
+                                    TComPattern* pcPatternKey,
+                                    Pel*         piRefY,
+                                    Int          iRefStride,
+                                    TComMv*      pcMvSrchRngLT,
+                                    TComMv*      pcMvSrchRngRB,
+                                    TComMv&      rcMv,
+                                    Distortion&  ruiSAD
+                                  );
+
+
+  //JCY #2
+  Void xBlockFastSearch           ( TComDataCU*  pcCU,
+                                    TComPattern* pcPatternKey,
+                                    Pel*         piRefY,
+                                    Int          iRefStride,
+                                    TComMv*      pcMvSrchRngLT,
+                                    TComMv*      pcMvSrchRngRB,
+                                    TComMv&      rcMv,
+                                    Distortion&  ruiSAD
+                                  ){}
 
   Void xPatternSearchFracDIF      (
                                     Bool         bIsLosslessCoded,

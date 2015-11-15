@@ -393,13 +393,13 @@ Void TEncTop::encode( Bool flush, TComPicYuv* pcPicYuvOrg, TComPicYuv* pcPicYuvT
   }
 #if NH_MV
   }
-  m_cGOPEncoder.compressPicInGOP(m_iPOCLast, m_iNumPicRcvd, *(m_ivPicLists->getSubDpb(getLayerId(), false) ), rcListPicYuvRecOut, accessUnitsOut, false, false, snrCSC, m_printFrameMSE, gopId);
+  m_cGOPEncoder.compressPicInGOP(m_iPOCLast, m_iNumPicRcvd, *(m_ivPicLists->getSubDpb(getLayerId(), false) ), rcListPicYuvRecOut, accessUnitsOut, false, false, snrCSC, m_printFrameMSE, gopId, &m_cSearch);
 
   if( gopId + 1 == m_cGOPEncoder.getGOPSize() )
   {
 #else
   // compress GOP
-  m_cGOPEncoder.compressGOP(m_iPOCLast, m_iNumPicRcvd, m_cListPic, rcListPicYuvRecOut, accessUnitsOut, false, false, snrCSC, m_printFrameMSE);
+  m_cGOPEncoder.compressGOP(m_iPOCLast, m_iNumPicRcvd, m_cListPic, rcListPicYuvRecOut, accessUnitsOut, false, false, snrCSC, m_printFrameMSE, &m_cSearch);
 #endif
   if ( m_RCEnableRateControl )
   {

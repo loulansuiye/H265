@@ -1052,11 +1052,11 @@ Void TEncGOP::initGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rcList
 #if NH_MV
 Void TEncGOP::compressPicInGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rcListPic, 
                                 TComList<TComPicYuv*>& rcListPicYuvRecOut,  std::list<AccessUnit>& accessUnitsInGOP, 
-                                Bool isField, Bool isTff, const InputColourSpaceConversion snr_conversion, const Bool printFrameMSE, Int iGOPid )
+                                Bool isField, Bool isTff, const InputColourSpaceConversion snr_conversion, const Bool printFrameMSE, Int iGOPid, TEncSearch* pcSearch )
 #else
 Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rcListPic,
                            TComList<TComPicYuv*>& rcListPicYuvRecOut, std::list<AccessUnit>& accessUnitsInGOP,
-                           Bool isField, Bool isTff, const InputColourSpaceConversion snr_conversion, const Bool printFrameMSE )
+                           Bool isField, Bool isTff, const InputColourSpaceConversion snr_conversion, const Bool printFrameMSE, TEncSearch* pcSearch )
 #endif
 {
   // TODO: Split this function up.
@@ -1592,6 +1592,35 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
       const UInt numberOfCtusInFrame=pcPic->getPicSym()->getNumberOfCtusInFrame();
       pcSlice->setSliceCurStartCtuTsAddr( 0 );
       pcSlice->setSliceSegmentCurStartCtuTsAddr( 0 );
+
+      //!< Copy current frame
+      Pel* pTmp[3];
+
+      pTmp[0] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Y);
+      pTmp[1] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cb);  
+      pTmp[2] = pcPic->getPicYuvOrg()->getBuf(COMPONENT_Cr);  
+      pcSearch->m_pcHostGPU->CopyCurFrameToGpu(pTmp);
+
+      //!< copy reference frame (slice(0) also has RefPOCList info)
+      //This is not the best implementation because same reference maybe transferred
+      //multiple times but this should be fine since processing time should be
+      //much larger than transfer time.
+      for(int idx=0; idx < pcPic->getSlice(0)->getNumRefIdx(REF_PIC_LIST_0);idx++)
+      {
+        pTmp[0] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
+        pTmp[1] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
+        pTmp[2] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_0,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
+        pcSearch->m_pcHostGPU->CopyRefFrameToGpuByIndex(pTmp, idx, 0);
+      }
+      
+
+      for(int idx=0; idx < pcPic->getSlice(0)->getNumRefIdx(REF_PIC_LIST_1);idx++)
+      {
+        pTmp[0] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Y);
+        pTmp[1] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cb);
+        pTmp[2] = pcPic->getSlice(0)->getRefPic(REF_PIC_LIST_1,idx)->getPicYuvRec()->getBuf(COMPONENT_Cr);
+        pcSearch->m_pcHostGPU->CopyRefFrameToGpuByIndex(pTmp, idx, 1);
+      }
 
       for(UInt nextCtuTsAddr = 0; nextCtuTsAddr < numberOfCtusInFrame; )
       {

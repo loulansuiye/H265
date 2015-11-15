@@ -129,6 +129,11 @@ private:
 #endif
   Int                     m_iCostScale;
 
+public: //JCY
+  UInt getCost() {return m_uiCost;}
+  Int  getCostScale() {return m_iCostScale;}
+  TComMv getMvPred() {return m_mvPredictor;}
+
 public:
   TComRdCost();
   virtual ~TComRdCost();
